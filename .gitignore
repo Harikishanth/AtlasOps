@@ -6,7 +6,8 @@ __pycache__/
 checkpoints/
 data/
 bench/results/
-docs/postmortems/
+# docs/postmortems/ — keep sample postmortems, ignore generated ones
+docs/postmortems/generated/
 bench/chaos_manifests/adversarial/
 .venv/
 venv/
