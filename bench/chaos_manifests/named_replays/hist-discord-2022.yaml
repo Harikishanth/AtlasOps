@@ -1,0 +1,38 @@
+# Discord 2022: Cache thundering herd — all clients hammer backend after cache miss
+# Simulated by: Kill Redis, then watch cartservice + checkoutservice hammer Cloud SQL
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: hist-discord-2022-redis-kill
+  namespace: chaos-mesh
+  labels:
+    scenario: hist-discord-2022
+    tier: named_replay
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: redis-cart
+---
+# Amplify the thundering herd with artificial latency on the fallback path
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: hist-discord-2022-cartservice-latency
+  namespace: chaos-mesh
+  labels:
+    scenario: hist-discord-2022
+    tier: named_replay
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: cartservice
+  delay:
+    latency: "3000ms"
+    correlation: "80"
+  duration: "15m"

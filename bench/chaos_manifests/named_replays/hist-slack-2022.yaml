@@ -1,0 +1,42 @@
+# Slack 2022: HTTP/2 client misconfiguration causing connection multiplexing failures
+# Simulated by: NetworkChaos duplicate packets on frontend (mimics duplicate HTTP/2 frames)
+# + high latency to create connection backlog
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: hist-slack-2022-http2-duplicate
+  namespace: chaos-mesh
+  labels:
+    scenario: hist-slack-2022
+    tier: named_replay
+spec:
+  action: duplicate
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: frontend
+  duplicate:
+    duplicate: "40"
+    correlation: "50"
+  duration: "10m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: hist-slack-2022-checkout-latency
+  namespace: chaos-mesh
+  labels:
+    scenario: hist-slack-2022
+    tier: named_replay
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: checkoutservice
+  delay:
+    latency: "1500ms"
+    jitter: "500ms"
+  duration: "10m"

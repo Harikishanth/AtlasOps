@@ -1,0 +1,37 @@
+# mf-004: payment clock skew + cart packet corruption
+apiVersion: chaos-mesh.org/v1alpha1
+kind: TimeChaos
+metadata:
+  name: mf-004-payment-clockskew
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-004
+    tier: multi_fault
+spec:
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: paymentservice
+  timeOffset: "+420s"
+  duration: "15m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: mf-004-cart-corrupt
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-004
+    tier: multi_fault
+spec:
+  action: corrupt
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: cartservice
+  corrupt:
+    corrupt: "25"
+    correlation: "25"
+  duration: "15m"

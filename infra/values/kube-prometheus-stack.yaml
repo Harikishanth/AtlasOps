@@ -1,0 +1,63 @@
+grafana:
+  enabled: true
+  service:
+    type: LoadBalancer
+  adminPassword: "cloudsre-admin"
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s/"
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+    additionalScrapeConfigs:
+      - job_name: 'online-boutique'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: [default]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+
+alertmanager:
+  alertmanagerSpec:
+    configSecret: alertmanager-cloudsre-config
+  service:
+    type: ClusterIP
+
+# GKE Autopilot: disable components that require hostPID/hostNetwork/hostPath or kube-system access
+nodeExporter:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+coreDns:
+  enabled: false
+
+# Disable node affinity with disallowed label keys
+prometheusOperator:
+  enabled: true
+  affinity: {}
+  tolerations: []
+
+kubeStateMetrics:
+  enabled: true

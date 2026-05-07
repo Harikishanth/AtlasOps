@@ -1,0 +1,38 @@
+# mf-003: DNS random errors + currency latency injection
+apiVersion: chaos-mesh.org/v1alpha1
+kind: DNSChaos
+metadata:
+  name: mf-003-dns-random
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-003
+    tier: multi_fault
+spec:
+  action: random
+  mode: all
+  selector:
+    namespaces: [default]
+  patterns:
+    - "*.default.svc.cluster.local."
+  duration: "15m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: mf-003-currency-delay
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-003
+    tier: multi_fault
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: currencyservice
+  delay:
+    latency: "1800ms"
+    jitter: "400ms"
+    correlation: "80"
+  duration: "15m"

@@ -1,0 +1,19 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: sf-002-paymentservice-cpu
+  namespace: chaos-mesh
+  labels:
+    scenario: sf-002
+    tier: single_fault
+spec:
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: paymentservice
+  stressors:
+    cpu:
+      workers: 4
+      load: 90
+  duration: "10m"

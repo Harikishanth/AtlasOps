@@ -1,0 +1,40 @@
+# mf-001: frontend packet loss + checkout CPU pressure
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: mf-001-frontend-loss
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-001
+    tier: multi_fault
+spec:
+  action: loss
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: frontend
+  loss:
+    loss: "35"
+    correlation: "30"
+  duration: "15m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: mf-001-checkout-cpu
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-001
+    tier: multi_fault
+spec:
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: checkoutservice
+  stressors:
+    cpu:
+      workers: 4
+      load: 90
+  duration: "15m"

@@ -1,0 +1,19 @@
+# Datadog 2023: systemd-resolved / DNS resolution failures cascading
+# Simulated by: DNSChaos across ALL default namespace services
+apiVersion: chaos-mesh.org/v1alpha1
+kind: DNSChaos
+metadata:
+  name: hist-datadog-2023-dns-failure
+  namespace: chaos-mesh
+  labels:
+    scenario: hist-datadog-2023
+    tier: named_replay
+spec:
+  action: error
+  mode: all
+  selector:
+    namespaces: [default]
+  patterns:
+    - "*.default.svc.cluster.local."
+    - "*.cluster.local."
+  duration: "10m"

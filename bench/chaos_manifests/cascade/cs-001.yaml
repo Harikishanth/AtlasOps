@@ -1,0 +1,23 @@
+# cs-001: currency latency → checkout timeout → cart retries → frontend 5xx surge
+# Apply with: kubectl apply -f cs-001.yaml
+# Reset with: make chaos-reset
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: cs-001-currency-latency
+  namespace: chaos-mesh
+  labels:
+    scenario: cs-001
+    tier: cascade
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: currencyservice
+  delay:
+    latency: "2000ms"
+    correlation: "100"
+    jitter: "500ms"
+  duration: "15m"

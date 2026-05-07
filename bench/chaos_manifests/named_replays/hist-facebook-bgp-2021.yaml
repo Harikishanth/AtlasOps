@@ -1,0 +1,22 @@
+# Facebook BGP 2021: BGP route withdrawal took down all Facebook services globally
+# Simulated by: NetworkChaos partition between control plane (kube-system) and data plane (default)
+# + partition the service mesh control plane from data plane workers
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: hist-facebook-bgp-2021-partition
+  namespace: chaos-mesh
+  labels:
+    scenario: hist-facebook-bgp-2021
+    tier: named_replay
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces: [default]
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces: [kube-system]
+  duration: "10m"

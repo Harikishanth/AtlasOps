@@ -1,0 +1,16 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: TimeChaos
+metadata:
+  name: sf-008-paymentservice-clock-skew
+  namespace: chaos-mesh
+  labels:
+    scenario: sf-008
+    tier: single_fault
+spec:
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: paymentservice
+  timeOffset: "+600s"  # 10 minutes ahead — breaks JWT expiry checks
+  duration: "10m"

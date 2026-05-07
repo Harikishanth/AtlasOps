@@ -1,0 +1,31 @@
+server:
+  service:
+    type: LoadBalancer
+  extraArgs:
+    - --insecure  # TLS terminated at LB; fine for demo cluster
+
+configs:
+  params:
+    server.insecure: true
+
+repoServer:
+  replicaCount: 1
+
+applicationSet:
+  enabled: true
+
+notifications:
+  enabled: false  # we use Alertmanager + Slack instead
+
+# Reduce resource requests for Autopilot
+controller:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+redis:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi

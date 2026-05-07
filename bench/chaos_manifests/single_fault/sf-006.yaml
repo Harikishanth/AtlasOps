@@ -1,0 +1,18 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: DNSChaos
+metadata:
+  name: sf-006-dns-random-auth-path
+  namespace: chaos-mesh
+  labels:
+    scenario: sf-006
+    tier: single_fault
+spec:
+  action: random
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: checkoutservice
+  patterns:
+    - "paymentservice.default.svc.cluster.local."
+  duration: "10m"

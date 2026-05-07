@@ -1,0 +1,15 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: sf-001-cartservice-kill
+  namespace: chaos-mesh
+  labels:
+    scenario: sf-001
+    tier: single_fault
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: cartservice

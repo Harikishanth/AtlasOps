@@ -1,0 +1,42 @@
+# mf-005: email disk fault + checkout network delay
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: mf-005-email-iofault
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-005
+    tier: multi_fault
+spec:
+  action: fault
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: emailservice
+  volumePath: /tmp
+  path: "/tmp/**"
+  errno: 28
+  percent: 100
+  duration: "15m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: mf-005-checkout-delay
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-005
+    tier: multi_fault
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: checkoutservice
+  delay:
+    latency: "2200ms"
+    jitter: "300ms"
+    correlation: "85"
+  duration: "15m"

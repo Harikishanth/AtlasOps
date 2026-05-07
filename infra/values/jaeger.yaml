@@ -1,0 +1,43 @@
+provisionDataStore:
+  cassandra: false
+  elasticsearch: false
+  kafka: false
+
+storage:
+  type: memory
+
+collector:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+
+query:
+  replicaCount: 1
+  service:
+    type: LoadBalancer
+
+agent:
+  enabled: false  # Use OTel collector sidecar instead
+
+# OTel collector as DaemonSet — all Online Boutique services emit traces here
+opentelemetry-collector:
+  enabled: true
+  mode: daemonset
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    exporters:
+      jaeger:
+        endpoint: jaeger-collector.tracing.svc.cluster.local:14250
+        tls:
+          insecure: true
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [jaeger]

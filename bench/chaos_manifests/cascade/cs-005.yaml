@@ -1,0 +1,42 @@
+# cs-005: Cloud SQL connection exhaustion → cartservice 500s → checkout fails
+# Simulated by killing cartservice pods (database inaccessible) + network delay to Cloud SQL proxy
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: cs-005-cloudsql-connection-exhaustion
+  namespace: chaos-mesh
+  labels:
+    scenario: cs-005
+    tier: cascade
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: cartservice
+  delay:
+    latency: "5000ms"
+    correlation: "100"
+    jitter: "1000ms"
+  duration: "15m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: cs-005-cartservice-memory-pressure
+  namespace: chaos-mesh
+  labels:
+    scenario: cs-005
+    tier: cascade
+spec:
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: cartservice
+  stressors:
+    memory:
+      workers: 2
+      size: "400MB"
+  duration: "15m"

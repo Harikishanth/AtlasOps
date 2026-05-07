@@ -1,0 +1,20 @@
+# cs-003: recommendation CPU hog → frontend latency → user-facing P1
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: cs-003-recommendationservice-cpu
+  namespace: chaos-mesh
+  labels:
+    scenario: cs-003
+    tier: cascade
+spec:
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: recommendationservice
+  stressors:
+    cpu:
+      workers: 4
+      load: 95
+  duration: "15m"

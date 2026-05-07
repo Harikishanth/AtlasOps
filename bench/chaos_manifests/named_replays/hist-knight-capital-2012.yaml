@@ -1,0 +1,42 @@
+# Knight Capital 2012: Accidental partial deploy — old + new code running simultaneously
+# Simulated by: Argo CD sync to a manifest that deploys BOTH old and new versions of checkoutservice
+# Result: checkout requests split between v1 (wrong pricing) and v2 (correct) — revenue discrepancy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkoutservice-legacy
+  namespace: default
+  labels:
+    app: checkoutservice-legacy
+    scenario: hist-knight-capital-2012
+    tier: named_replay
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: checkoutservice-legacy
+  template:
+    metadata:
+      labels:
+        app: checkoutservice-legacy
+    spec:
+      containers:
+        - name: server
+          image: gcr.io/google-samples/microservices-demo/checkoutservice:v0.9.0  # old version
+          ports:
+            - containerPort: 5050
+          env:
+            - name: PORT
+              value: "5050"
+            - name: PRODUCT_CATALOG_SERVICE_ADDR
+              value: "productcatalogservice:3550"
+            - name: SHIPPING_SERVICE_ADDR
+              value: "shippingservice:50051"
+            - name: PAYMENT_SERVICE_ADDR
+              value: "paymentservice:50051"
+            - name: EMAIL_SERVICE_ADDR
+              value: "emailservice:8080"
+            - name: CURRENCY_SERVICE_ADDR
+              value: "currencyservice:7000"
+            - name: CART_SERVICE_ADDR
+              value: "cartservice:7070"

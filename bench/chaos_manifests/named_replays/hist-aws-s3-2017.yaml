@@ -1,0 +1,33 @@
+# AWS S3 2017: Typo'd capacity — accidental deletion of too many subsystems
+# Simulated by: Argo CD sync that scales productcatalog to 0 replicas (bad manifest deploy)
+# Note: requires argocd app pointing to bench/bad_manifests/aws-s3-2017/ in Git
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hist-aws-s3-2017-bad-deploy
+  namespace: argocd
+  labels:
+    scenario: hist-aws-s3-2017
+    tier: named_replay
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/GoogleCloudPlatform/microservices-demo
+    targetRevision: HEAD
+    path: release
+    kustomize:
+      patches:
+        - target:
+            kind: Deployment
+            name: productcatalogservice
+          patch: |
+            - op: replace
+              path: /spec/replicas
+              value: 0
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false

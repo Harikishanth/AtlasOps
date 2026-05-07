@@ -1,0 +1,23 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: sf-005-redis-cartservice-partition
+  namespace: chaos-mesh
+  labels:
+    scenario: sf-005
+    tier: single_fault
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: redis-cart
+  direction: both
+  target:
+    mode: all
+    selector:
+      namespaces: [default]
+      labelSelectors:
+        app: cartservice
+  duration: "10m"

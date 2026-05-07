@@ -1,0 +1,19 @@
+# GitHub 2018: DB failover loop — MySQL primary/replica promotion cycling
+# Simulated by: PodChaos kill on Redis (acts as primary) + NetworkChaos delay on replica path
+# Creates a promotion loop: new redis pod restarts, checkpoint fails, cycle repeats
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: hist-github-2018-redis-kill
+  namespace: chaos-mesh
+  labels:
+    scenario: hist-github-2018
+    tier: named_replay
+spec:
+  action: pod-kill
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: redis-cart
+  duration: "15m"

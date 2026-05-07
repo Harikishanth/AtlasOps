@@ -1,0 +1,23 @@
+# Cloudflare 2019: Regex backtrack CPU storm
+# Real incident: A WAF rule with catastrophic regex caused global CPU spike
+# Simulated by: StressChaos on frontend (acts as edge proxy) + bad ConfigMap injection
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: hist-cloudflare-2019-regex-cpu
+  namespace: chaos-mesh
+  labels:
+    scenario: hist-cloudflare-2019
+    tier: named_replay
+    historical_incident: "cloudflare-2019"
+spec:
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: frontend
+  stressors:
+    cpu:
+      workers: 4
+      load: 100
+  duration: "15m"

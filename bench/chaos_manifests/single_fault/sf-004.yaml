@@ -1,0 +1,19 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: sf-004-frontend-network-loss
+  namespace: chaos-mesh
+  labels:
+    scenario: sf-004
+    tier: single_fault
+spec:
+  action: loss
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: frontend
+  loss:
+    loss: "50"
+    correlation: "25"
+  duration: "10m"

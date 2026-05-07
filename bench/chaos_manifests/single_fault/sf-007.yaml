@@ -1,0 +1,20 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: sf-007-emailservice-disk-fill
+  namespace: chaos-mesh
+  labels:
+    scenario: sf-007
+    tier: single_fault
+spec:
+  action: fault
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: emailservice
+  volumePath: /var/log
+  path: "/var/log/**"
+  errno: 28  # ENOSPC — No space left on device
+  percent: 100
+  duration: "10m"

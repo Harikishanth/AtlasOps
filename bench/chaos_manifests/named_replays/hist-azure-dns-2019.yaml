@@ -1,0 +1,20 @@
+# Azure DNS 2019: Stale DNS / cache poisoning causing widespread service resolution failures
+# Simulated by: DNSChaos random resolution errors on specific service names
+apiVersion: chaos-mesh.org/v1alpha1
+kind: DNSChaos
+metadata:
+  name: hist-azure-dns-2019-stale-dns
+  namespace: chaos-mesh
+  labels:
+    scenario: hist-azure-dns-2019
+    tier: named_replay
+spec:
+  action: random
+  mode: all
+  selector:
+    namespaces: [default]
+  patterns:
+    - "checkoutservice.default.svc.cluster.local."
+    - "cartservice.default.svc.cluster.local."
+    - "currencyservice.default.svc.cluster.local."
+  duration: "10m"

@@ -1,0 +1,44 @@
+# mf-002: redis partition + recommendation memory stress
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: mf-002-redis-partition
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-002
+    tier: multi_fault
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: redis-cart
+  direction: both
+  target:
+    mode: all
+    selector:
+      namespaces: [default]
+      labelSelectors:
+        app: cartservice
+  duration: "15m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: mf-002-recommend-memory
+  namespace: chaos-mesh
+  labels:
+    scenario: mf-002
+    tier: multi_fault
+spec:
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: recommendationservice
+  stressors:
+    memory:
+      workers: 2
+      size: "512MB"
+  duration: "15m"

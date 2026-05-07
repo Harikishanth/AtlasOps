@@ -1,0 +1,27 @@
+chaosDaemon:
+  runtime: containerd
+  socketPath: /run/containerd/containerd.sock
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+dashboard:
+  enabled: true
+  service:
+    type: ClusterIP  # accessed via kubectl port-forward; not exposed externally
+
+controllerManager:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+webhook:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Allow chaos on all namespaces including default (Online Boutique)
+clusterScoped: true

@@ -1,0 +1,19 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: sf-003-checkoutservice-memory
+  namespace: chaos-mesh
+  labels:
+    scenario: sf-003
+    tier: single_fault
+spec:
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: checkoutservice
+  stressors:
+    memory:
+      workers: 2
+      size: "512MB"
+  duration: "10m"

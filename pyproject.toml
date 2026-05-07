@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "atlasops"
+version = "1.0.0"
+description = "AtlasOps — Multi-agent incident response on real GCP/GKE with AMD MI300X"
+requires-python = ">=3.11"
+dependencies = [
+    # Agent runtime
+    "openai>=1.30.0",
+    "anthropic>=0.28.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.7.0",
+    # GCP clients
+    "google-cloud-monitoring>=2.20.0",
+    "google-cloud-logging>=3.10.0",
+    "google-cloud-pubsub>=2.21.0",
+    "google-auth>=2.29.0",
+    # Kubernetes
+    "kubernetes>=30.1.0",
+    # Observability clients
+    "requests>=2.32.0",
+    # Dashboard
+    "gradio>=4.36.0",
+    # Utils
+    "rich>=13.7.0",
+    "typer>=0.12.0",
+    "python-dotenv>=1.0.0",
+    "jinja2>=3.1.4",
+]
+
+[project.optional-dependencies]
+train = [
+    "torch>=2.3.0",
+    "transformers>=4.41.0",
+    "trl>=0.9.0",
+    "peft>=0.11.0",
+    "datasets>=2.19.0",
+    "accelerate>=0.30.0",
+    "vllm>=0.5.0",
+    "bitsandbytes>=0.43.0",
+]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["agents", "bench", "training"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

@@ -1,0 +1,21 @@
+# cs-004: emailservice disk full → notification backlog → checkout timeout
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: cs-004-emailservice-disk-full
+  namespace: chaos-mesh
+  labels:
+    scenario: cs-004
+    tier: cascade
+spec:
+  action: fault
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: emailservice
+  volumePath: /tmp
+  path: "/tmp/**"
+  errno: 28
+  percent: 100
+  duration: "15m"

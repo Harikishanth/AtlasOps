@@ -1,0 +1,22 @@
+# cs-002: Redis partition → cart errors → checkout errors → revenue alarm
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: cs-002-redis-partition
+  namespace: chaos-mesh
+  labels:
+    scenario: cs-002
+    tier: cascade
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: redis-cart
+  direction: both
+  target:
+    mode: all
+    selector:
+      namespaces: [default]
+  duration: "15m"
