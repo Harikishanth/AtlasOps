@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.env
+checkpoints/
+data/
+bench/results/
+docs/postmortems/
+bench/chaos_manifests/adversarial/
+.venv/
+venv/
+*.egg-info/
+dist/
+.DS_Store
