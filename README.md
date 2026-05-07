@@ -2,7 +2,10 @@
 
 > **AMD Developer Hackathon 2026** | Real GKE cluster · Real Chaos Mesh · Real Prometheus alerts · AMD MI300X
 
+[![CI](https://github.com/Harikishanth/AtlasOps/actions/workflows/ci.yml/badge.svg)](https://github.com/Harikishanth/AtlasOps/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-100%2B-brightgreen)](tests/)
+[![AMD MI300X](https://img.shields.io/badge/GPU-AMD%20MI300X%20192GB-red)](BLOG.md)
 
 ---
 

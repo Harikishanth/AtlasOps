@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest pytest-asyncio pyyaml requests jinja2 pydantic
+
+      - name: Run chaos manifest validation tests
+        run: pytest tests/test_chaos_manifests.py -v
+
+      - name: Run tool unit tests (mocked)
+        run: pytest tests/test_tools.py tests/test_coordinator.py -v
+
+      - name: Check all Python files compile
+        run: |
+          python -m py_compile agents/coordinator.py
+          python -m py_compile agents/stream.py
+          python -m py_compile agents/judge.py
+          python -m py_compile agents/adversarial_designer.py
+          python -m py_compile bench/runner.py
+          python -m py_compile dashboard.py
+          python -m py_compile inference.py
+          echo "All files compile OK"
