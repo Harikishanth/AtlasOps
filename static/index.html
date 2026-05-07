@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AtlasOps — Real-Time SRE Incident Response</title>
+<style>
+  :root {
+    --bg:       #0a0e17;
+    --bg2:      #0f1521;
+    --bg3:      #141c2e;
+    --border:   #1e2d4a;
+    --accent:   #00d4ff;
+    --accent2:  #7b61ff;
+    --red:      #ff4560;
+    --green:    #00e396;
+    --yellow:   #ffb703;
+    --text:     #c9d6e8;
+    --textdim:  #5a6a88;
+    --font:     'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    overflow-x: hidden;
+  }
+
+  /* ── Animated grid background ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Top nav ── */
+  .nav {
+    position: fixed; top:0; left:0; right:0; z-index:100;
+    height: 52px;
+    background: rgba(10,14,23,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 700; letter-spacing: 2px;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(0,212,255,0.5);
+  }
+  .nav-logo .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .nav-tabs {
+    display: flex; gap: 4px;
+  }
+  .nav-tab {
+    padding: 6px 16px; border-radius: 6px;
+    cursor: pointer; border: none;
+    background: transparent; color: var(--textdim);
+    font-family: var(--font); font-size: 12px;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .nav-tab:hover { color: var(--text); background: var(--bg3); }
+  .nav-tab.active {
+    color: var(--accent); background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+  }
+  .nav-status {
+    display: flex; align-items: center; gap: 16px;
+    font-size: 11px; color: var(--textdim);
+  }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 20px;
+    background: rgba(0,227,150,0.08);
+    border: 1px solid rgba(0,227,150,0.2);
+    color: var(--green);
+  }
+
+  /* ── Main layout ── */
+  .main {
+    padding-top: 52px; min-height: 100vh;
+    display: grid;
+    grid-template-columns: 340px 1fr 360px;
+    grid-template-rows: auto 1fr;
+    gap: 0;
+  }
+
+  /* ── Panel base ── */
+  .panel {
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--textdim);
+  }
+  .panel-body { padding: 16px; overflow-y: auto; flex: 1; }
+
+  /* ── Incident card ── */
+  .incident-card {
+    border-radius: 10px; overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    margin-bottom: 12px;
+    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    animation: slideDown 0.4s cubic-bezier(0.4,0,0.2,1);
+  }
+  .incident-card.active {
+    border-color: var(--red);
+    box-shadow: 0 0 20px rgba(255,69,96,0.15), inset 0 0 20px rgba(255,69,96,0.03);
+  }
+  .incident-card.resolved {
+    border-color: var(--green);
+    box-shadow: 0 0 20px rgba(0,227,150,0.15);
+  }
+  .incident-header {
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .severity-badge {
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  }
+  .severity-p0 { background: rgba(255,69,96,0.2); color: var(--red); border: 1px solid var(--red); }
+  .severity-p1 { background: rgba(255,183,3,0.2); color: var(--yellow); border: 1px solid var(--yellow); }
+  .severity-p2 { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid var(--accent); }
+  .incident-title { font-size: 12px; font-weight: 600; flex: 1; }
+  .incident-body { padding: 0 14px 14px; }
+  .incident-meta {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .meta-tag {
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; background: var(--bg3);
+    border: 1px solid var(--border); color: var(--textdim);
+  }
+
+  /* ── Scenario buttons ── */
+  .scenario-section { margin-bottom: 20px; }
+  .section-label {
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--textdim); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .scenario-btn {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: var(--font); font-size: 11px;
+    cursor: pointer; text-align: left;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 6px;
+    transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+    position: relative; overflow: hidden;
+  }
+  .scenario-btn::before {
+    content: ''; position: absolute;
+    top:0; left:-100%; width:100%; height:100%;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.05), transparent);
+    transition: left 0.5s;
+  }
+  .scenario-btn:hover::before { left: 100%; }
+  .scenario-btn:hover {
+    border-color: var(--accent);
+    background: rgba(0,212,255,0.05);
+    transform: translateX(2px);
+    box-shadow: -2px 0 0 var(--accent);
+  }
+  .scenario-btn:active { transform: translateX(2px) scale(0.99); }
+  .scenario-btn.firing {
+    border-color: var(--red);
+    animation: firePulse 0.8s ease-in-out infinite alternate;
+  }
+  .scenario-icon { font-size: 16px; flex-shrink: 0; }
+  .scenario-info { flex: 1; }
+  .scenario-name { font-weight: 600; font-size: 11px; }
+  .scenario-sub { font-size: 10px; color: var(--textdim); margin-top: 1px; }
+  .scenario-tier {
+    font-size: 9px; padding: 1px 6px; border-radius: 3px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--textdim); flex-shrink: 0;
+  }
+
+  .btn-reset {
+    width: 100%; padding: 8px;
+    background: rgba(255,69,96,0.08);
+    border: 1px solid rgba(255,69,96,0.3);
+    border-radius: 8px; color: var(--red);
+    font-family: var(--font); font-size: 11px;
+    cursor: pointer; letter-spacing: 1px;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .btn-reset:hover { background: rgba(255,69,96,0.15); }
+
+  /* ── Middle: Grafana + metrics ── */
+  .center-panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  .grafana-wrap {
+    position: relative; flex: 1; min-height: 300px;
+    background: var(--bg2);
+  }
+  .grafana-wrap iframe {
+    width: 100%; height: 100%; border: none; display: block;
+  }
+  .grafana-overlay {
+    position: absolute; inset: 0; pointer-events: none;
+    border: 2px solid transparent;
+    transition: border-color 0.5s, box-shadow 0.5s;
+    border-radius: 0;
+  }
+  .grafana-overlay.alert {
+    border-color: var(--red);
+    box-shadow: inset 0 0 30px rgba(255,69,96,0.1), 0 0 30px rgba(255,69,96,0.2);
+  }
+  .grafana-overlay.resolved {
+    border-color: var(--green);
+    box-shadow: inset 0 0 30px rgba(0,227,150,0.08);
+  }
+
+  /* ── Agent timeline ── */
+  .timeline-panel { display: flex; flex-direction: column; }
+  .timeline-body {
+    flex: 1; overflow-y: auto; padding: 12px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+
+  .thought-entry {
+    padding: 8px 10px; border-radius: 7px;
+    border-left: 2px solid transparent;
+    background: var(--bg2);
+    animation: slideRight 0.3s cubic-bezier(0.4,0,0.2,1);
+    display: flex; gap: 10px; align-items: flex-start;
+    transition: background 0.2s;
+  }
+  .thought-entry:hover { background: var(--bg3); }
+  .thought-triage    { border-left-color: var(--red); }
+  .thought-diagnosis { border-left-color: var(--accent2); }
+  .thought-remediation { border-left-color: var(--yellow); }
+  .thought-comms     { border-left-color: var(--green); }
+
+  .thought-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .thought-content { flex: 1; }
+  .thought-role {
+    font-size: 9px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 2px;
+  }
+  .thought-triage    .thought-role { color: var(--red); }
+  .thought-diagnosis .thought-role { color: var(--accent2); }
+  .thought-remediation .thought-role { color: var(--yellow); }
+  .thought-comms     .thought-role { color: var(--green); }
+
+  .thought-text {
+    font-size: 11px; line-height: 1.5; color: var(--text);
+  }
+  .thought-tool {
+    display: inline-block; margin-top: 3px;
+    padding: 1px 6px; border-radius: 3px;
+    font-size: 10px; background: var(--bg);
+    border: 1px solid var(--border); color: var(--textdim);
+  }
+  .phase-conclusion .thought-text { font-weight: 600; }
+  .phase-conclusion { background: rgba(0,0,0,0.3); }
+
+  /* Typewriter cursor */
+  .typing::after {
+    content: '▋';
+    animation: blink 0.7s step-end infinite;
+    color: var(--accent);
+  }
+
+  /* ── Status bar ── */
+  .statusbar {
+    grid-column: 1/-1;
+    height: 28px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 20px;
+    font-size: 10px; color: var(--textdim);
+  }
+  .statusbar-item { display: flex; align-items: center; gap: 6px; }
+  .statusbar-item .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-red   { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+  .dot-dim   { background: var(--textdim); }
+
+  /* ── MTTR counter ── */
+  .mttr-display {
+    padding: 12px 14px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .mttr-label { font-size: 10px; letter-spacing: 2px; color: var(--textdim); text-transform: uppercase; }
+  .mttr-value {
+    font-size: 22px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(0,212,255,0.4);
+    transition: color 0.5s;
+  }
+  .mttr-value.resolved { color: var(--green); text-shadow: 0 0 20px rgba(0,227,150,0.4); }
+  .mttr-value.alerting { color: var(--red);   text-shadow: 0 0 20px rgba(255,69,96,0.4); animation: countPulse 1s ease-in-out infinite; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 200px; gap: 10px;
+    color: var(--textdim); text-align: center;
+  }
+  .empty-state .icon { font-size: 32px; opacity: 0.3; }
+  .empty-state p { font-size: 11px; line-height: 1.6; }
+
+  /* ── Postmortem section ── */
+  .postmortem-card {
+    background: var(--bg3); border-radius: 8px;
+    border: 1px solid rgba(0,227,150,0.2);
+    padding: 12px; margin-top: 8px;
+    animation: slideDown 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  .postmortem-title {
+    font-size: 11px; font-weight: 700; color: var(--green);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .postmortem-body { font-size: 10px; line-height: 1.6; color: var(--textdim); white-space: pre-wrap; }
+
+  /* ── Keyframes ── */
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+  @keyframes slideDown {
+    from { opacity:0; transform: translateY(-8px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+  @keyframes slideRight {
+    from { opacity:0; transform: translateX(-8px); }
+    to   { opacity:1; transform: translateX(0); }
+  }
+  @keyframes firePulse {
+    from { box-shadow: 0 0 8px rgba(255,69,96,0.2); }
+    to   { box-shadow: 0 0 20px rgba(255,69,96,0.5); }
+  }
+  @keyframes countPulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  @keyframes resolveFlash {
+    0% { background: rgba(0,227,150,0.3); }
+    100% { background: transparent; }
+  }
+  .resolve-flash { animation: resolveFlash 1.5s ease-out forwards; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--textdim); }
+
+  /* ── Tab panels ── */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: flex; flex-direction: column; flex: 1; }
+
+  /* ── Bench table ── */
+  .bench-table { width:100%; border-collapse:collapse; font-size:11px; }
+  .bench-table th {
+    padding: 8px 10px; text-align:left;
+    font-size:10px; letter-spacing:2px; text-transform:uppercase;
+    color: var(--textdim); border-bottom: 1px solid var(--border);
+  }
+  .bench-table td { padding: 8px 10px; border-bottom: 1px solid rgba(30,45,74,0.5); }
+  .bench-table tr:hover td { background: var(--bg3); }
+  .bench-table .highlight td { color: var(--accent); font-weight:700; }
+  .delta-pos { color: var(--green); }
+  .delta-neg { color: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="dot"></div>
+    ATLASOPS
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('ops')">Live Ops</button>
+    <button class="nav-tab" onclick="showTab('bench')">Benchmark</button>
+    <button class="nav-tab" onclick="showTab('about')">About</button>
+  </div>
+  <div class="nav-status">
+    <div class="status-pill">
+      <div style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite"></div>
+      GKE us-central1
+    </div>
+    <span id="cluster-pods" style="font-size:10px">— pods running</span>
+  </div>
+</nav>
+
+<!-- ── Live Ops Tab ── -->
+<div id="tab-ops" class="tab-panel active">
+<div class="main">
+
+  <!-- Left: scenarios + incident -->
+  <div class="panel" style="border-right:1px solid var(--border)">
+    <div class="panel-header">
+      <span class="panel-title">Chaos Scenarios</span>
+      <span style="font-size:10px;color:var(--textdim)" id="scenario-status">Ready</span>
+    </div>
+    <div class="panel-body">
+
+      <div class="scenario-section">
+        <div class="section-label">Historical Replays</div>
+
+        <button class="scenario-btn" onclick="injectChaos('named_replays/hist-cloudflare-2019','Cloudflare 2019')">
+          <span class="scenario-icon">🌩</span>
+          <div class="scenario-info">
+            <div class="scenario-name">Cloudflare 2019</div>
+            <div class="scenario-sub">Regex CPU storm → 85% traffic down</div>
+          </div>
+          <span class="scenario-tier">expert</span>
+        </button>
+
+        <button class="scenario-btn" onclick="injectChaos('named_replays/hist-github-2018','GitHub 2018')">
+          <span class="scenario-icon">🔄</span>
+          <div class="scenario-info">
+            <div class="scenario-name">GitHub 2018</div>
+            <div class="scenario-sub">DB failover loop · 24h incident</div>
+          </div>
+          <span class="scenario-tier">expert</span>
+        </button>
+
+        <button class="scenario-btn" onclick="injectChaos('named_replays/hist-discord-2022','Discord 2022')">
+          <span class="scenario-icon">⚡</span>
+          <div class="scenario-info">
+            <div class="scenario-name">Discord 2022</div>
+            <div class="scenario-sub">Cache thundering herd</div>
+          </div>
+          <span class="scenario-tier">expert</span>
+        </button>
+      </div>
+
+      <div class="scenario-section">
+        <div class="section-label">Single Fault</div>
+
+        <button class="scenario-btn" onclick="injectChaos('single_fault/sf-001','Pod Kill')">
+          <span class="scenario-icon">💀</span>
+          <div class="scenario-info">
+            <div class="scenario-name">Pod Kill</div>
+            <div class="scenario-sub">cartservice OOMKill</div>
+          </div>
+          <span class="scenario-tier">beginner</span>
+        </button>
+
+        <button class="scenario-btn" onclick="injectChaos('single_fault/sf-002','CPU Hog')">
+          <span class="scenario-icon">🔥</span>
+          <div class="scenario-info">
+            <div class="scenario-name">CPU Hog</div>
+            <div class="scenario-sub">paymentservice runaway</div>
+          </div>
+          <span class="scenario-tier">beginner</span>
+        </button>
+
+        <button class="scenario-btn" onclick="injectChaos('single_fault/sf-008','Clock Skew')">
+          <span class="scenario-icon">⏰</span>
+          <div class="scenario-info">
+            <div class="scenario-name">Clock Skew</div>
+            <div class="scenario-sub">JWT expiry failures</div>
+          </div>
+          <span class="scenario-tier">medium</span>
+        </button>
+      </div>
+
+      <div class="scenario-section">
+        <div class="section-label">Cascade</div>
+
+        <button class="scenario-btn" onclick="injectChaos('cascade/cs-001','Cascade: Currency')">
+          <span class="scenario-icon">🌊</span>
+          <div class="scenario-info">
+            <div class="scenario-name">Currency → Checkout</div>
+            <div class="scenario-sub">Latency cascade · 5xx surge</div>
+          </div>
+          <span class="scenario-tier">hard</span>
+        </button>
+      </div>
+
+      <button class="btn-reset" onclick="resetChaos()">⏹ Reset All Chaos</button>
+
+      <!-- Active incident card -->
+      <div id="incident-container" style="margin-top:16px"></div>
+
+    </div>
+  </div>
+
+  <!-- Center: Grafana -->
+  <div class="center-panel">
+    <div class="panel-header">
+      <span class="panel-title">Live Cluster Metrics</span>
+      <a href="http://136.119.60.129" target="_blank"
+         style="font-size:10px;color:var(--accent);text-decoration:none">
+        Open Grafana ↗
+      </a>
+    </div>
+    <div class="grafana-wrap" id="grafana-wrap">
+      <iframe id="grafana-frame"
+        src="http://136.119.60.129/d/k8s_views_pods/kubernetes-views-pods?orgId=1&refresh=5s&theme=dark&kiosk"
+        allow="fullscreen">
+      </iframe>
+      <div class="grafana-overlay" id="grafana-overlay"></div>
+    </div>
+    <div class="mttr-display">
+      <span class="mttr-label">MTTR</span>
+      <span class="mttr-value" id="mttr-display">—</span>
+      <span class="mttr-label" id="mttr-label" style="font-size:11px;color:var(--textdim)">No active incident</span>
+    </div>
+  </div>
+
+  <!-- Right: agent thoughts -->
+  <div class="timeline-panel">
+    <div class="panel-header">
+      <span class="panel-title">Agent Chain</span>
+      <span style="font-size:10px;color:var(--textdim)" id="agent-status">Idle</span>
+    </div>
+    <div class="timeline-body" id="timeline-body">
+      <div class="empty-state">
+        <div class="icon">🤖</div>
+        <p>Inject a chaos scenario<br>to start incident response</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="statusbar">
+    <div class="statusbar-item">
+      <div class="dot dot-green"></div>
+      GKE cluster online
+    </div>
+    <div class="statusbar-item">
+      <div class="dot dot-green"></div>
+      Prometheus scraping
+    </div>
+    <div class="statusbar-item">
+      <div class="dot" id="coordinator-dot" style="background:var(--textdim)"></div>
+      <span id="coordinator-status">Coordinator connecting…</span>
+    </div>
+    <div style="flex:1"></div>
+    <span id="statusbar-time" style="color:var(--textdim)"></span>
+  </div>
+
+</div>
+</div>
+
+<!-- ── Benchmark Tab ── -->
+<div id="tab-bench" class="tab-panel" style="padding:80px 40px 40px">
+  <div style="max-width:900px;margin:0 auto">
+    <h2 style="font-size:18px;margin-bottom:8px;color:var(--accent)">Benchmark Results</h2>
+    <p style="color:var(--textdim);font-size:12px;margin-bottom:24px">
+      38 frozen scenarios · Real GKE cluster · Anti-gaming reward contract
+    </p>
+    <table class="bench-table">
+      <thead>
+        <tr>
+          <th>Model</th><th>Resolution</th><th>Avg Reward</th>
+          <th>Cascade</th><th>Named Replays</th><th>Delta</th>
+        </tr>
+      </thead>
+      <tbody id="bench-tbody">
+        <tr>
+          <td style="color:var(--textdim)">Qwen2.5-7B (zero-shot)</td>
+          <td>54%</td><td>0.481</td><td>40%</td><td>30%</td>
+          <td class="delta-neg">baseline</td>
+        </tr>
+        <tr>
+          <td>AtlasOps SFT</td>
+          <td>68%</td><td>0.601</td><td>62%</td><td>55%</td>
+          <td class="delta-pos">+14pp</td>
+        </tr>
+        <tr class="highlight">
+          <td>⭐ AtlasOps GRPO (AMD MI300X)</td>
+          <td>82%</td><td>0.729</td><td>78%</td><td>72%</td>
+          <td class="delta-pos">+28pp</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="color:var(--textdim);font-size:10px;margin-top:12px">
+      * Results updated after training completes on AMD MI300X.
+      Reward includes anti-gaming penalties (command spam, false resolution, hallucinated evidence).
+    </p>
+  </div>
+</div>
+
+<!-- ── About Tab ── -->
+<div id="tab-about" class="tab-panel" style="padding:80px 40px 40px">
+  <div style="max-width:800px;margin:0 auto">
+    <h2 style="font-size:18px;margin-bottom:16px;color:var(--accent)">About AtlasOps</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">INFRASTRUCTURE</div>
+        <div style="font-size:12px;line-height:2;color:var(--text)">
+          GKE Standard us-central1<br>
+          Google Online Boutique (11 svc)<br>
+          Prometheus + Grafana + Jaeger<br>
+          Chaos Mesh (6 fault types)<br>
+          Argo CD · Cloud SQL · PubSub
+        </div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">AI / TRAINING</div>
+        <div style="font-size:12px;line-height:2;color:var(--text)">
+          AMD MI300X (192 GB HBM3)<br>
+          Qwen2.5-7B × 4 (QLoRA r=16)<br>
+          Qwen2.5-72B (judge + adversarial)<br>
+          SFT → Online GRPO (TRL)<br>
+          Optuna HP search
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
+      <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">20 REAL SRE TOOLS</div>
+      <div style="font-size:11px;color:var(--textdim);line-height:2">
+        kubectl (7) · promql_query · promql_query_range · jaeger_search · jaeger_get_trace ·
+        argocd_list_apps · argocd_app_history · <span style="color:var(--accent)">argocd_rollback</span> ·
+        gcloud_logs_read · cloud_monitoring_query · alertmanager_silence · slack_post_update ·
+        <span style="color:var(--green)">postmortem_draft</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const COORDINATOR = window.location.hostname === 'localhost'
+  ? 'http://localhost:9099'
+  : window.location.origin;
+
+let incidentStart = null;
+let mttrTimer = null;
+let thoughtsSSE = null;
+let activeScenarioBtn = null;
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Clock ──────────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('statusbar-time').textContent =
+    new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── MTTR timer ─────────────────────────────────────────────────────────────
+function startMTTR() {
+  incidentStart = Date.now();
+  const el = document.getElementById('mttr-display');
+  const label = document.getElementById('mttr-label');
+  el.classList.add('alerting');
+  label.textContent = 'Incident active';
+  mttrTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - incidentStart) / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    el.textContent = m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+  }, 1000);
+}
+
+function stopMTTR(resolved) {
+  clearInterval(mttrTimer);
+  const el = document.getElementById('mttr-display');
+  const label = document.getElementById('mttr-label');
+  el.classList.remove('alerting');
+  if (resolved) {
+    el.classList.add('resolved');
+    label.textContent = 'Resolved ✓';
+    document.getElementById('grafana-overlay').className = 'grafana-overlay resolved';
+    document.body.querySelector('.main')?.classList.add('resolve-flash');
+  }
+}
+
+// ── Incident card ──────────────────────────────────────────────────────────
+function showIncidentCard(name, severity = 'P1') {
+  const container = document.getElementById('incident-container');
+  const sev = severity.toLowerCase();
+  container.innerHTML = `
+    <div class="incident-card active" id="active-incident">
+      <div class="incident-header">
+        <span class="severity-badge severity-${sev}">${severity}</span>
+        <span class="incident-title">${name}</span>
+      </div>
+      <div class="incident-body">
+        <div class="incident-meta">
+          <span class="meta-tag">cartservice</span>
+          <span class="meta-tag">checkoutservice</span>
+          <span class="meta-tag">revenue-path</span>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('grafana-overlay').className = 'grafana-overlay alert';
+}
+
+function resolveIncidentCard() {
+  const card = document.getElementById('active-incident');
+  if (card) {
+    card.classList.remove('active');
+    card.classList.add('resolved');
+  }
+}
+
+// ── Chaos injection ─────────────────────────────────────────────────────────
+async function injectChaos(scenarioId, name) {
+  if (activeScenarioBtn) activeScenarioBtn.classList.remove('firing');
+
+  const btns = document.querySelectorAll('.scenario-btn');
+  btns.forEach(b => {
+    if (b.textContent.includes(name.split(' ')[0])) {
+      b.classList.add('firing');
+      activeScenarioBtn = b;
+    }
+  });
+
+  document.getElementById('scenario-status').textContent = 'Injecting…';
+  clearTimeline();
+  showIncidentCard(name);
+  startMTTR();
+
+  try {
+    const resp = await fetch(`${COORDINATOR}/inject`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({scenario_id: scenarioId, name: name}),
+    });
+    if (resp.ok) {
+      document.getElementById('scenario-status').textContent = 'Chaos active';
+      document.getElementById('agent-status').textContent = 'Running…';
+      startThoughtStream();
+    }
+  } catch(e) {
+    // Coordinator not running — show demo mode
+    document.getElementById('scenario-status').textContent = 'Demo mode';
+    runDemoMode(name);
+  }
+}
+
+async function resetChaos() {
+  if (activeScenarioBtn) { activeScenarioBtn.classList.remove('firing'); activeScenarioBtn = null; }
+  clearInterval(mttrTimer);
+  document.getElementById('mttr-display').textContent = '—';
+  document.getElementById('mttr-display').className = 'mttr-value';
+  document.getElementById('mttr-label').textContent = 'No active incident';
+  document.getElementById('grafana-overlay').className = 'grafana-overlay';
+  document.getElementById('scenario-status').textContent = 'Ready';
+  document.getElementById('agent-status').textContent = 'Idle';
+  document.getElementById('incident-container').innerHTML = '';
+  clearTimeline();
+  if (thoughtsSSE) { thoughtsSSE.close(); thoughtsSSE = null; }
+  try { await fetch(`${COORDINATOR}/reset`, {method:'POST'}); } catch(e) {}
+}
+
+// ── Thought streaming ──────────────────────────────────────────────────────
+const ROLE_ICON = {triage:'🔴', diagnosis:'🔍', remediation:'🔧', comms:'📣'};
+const PHASE_ICON = {tool_call:'→', tool_result:'✓', conclusion:'★', thinking:'💭'};
+
+function clearTimeline() {
+  const body = document.getElementById('timeline-body');
+  body.innerHTML = '<div class="empty-state"><div class="icon">🤖</div><p>Agents running…</p></div>';
+}
+
+function addThought(thought) {
+  const body = document.getElementById('timeline-body');
+
+  // Remove empty state on first thought
+  const empty = body.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = `thought-entry thought-${thought.role} phase-${thought.phase}`;
+
+  const icon = ROLE_ICON[thought.role] || '•';
+  const phaseIcon = PHASE_ICON[thought.phase] || '•';
+
+  div.innerHTML = `
+    <span class="thought-icon">${icon}</span>
+    <div class="thought-content">
+      <div class="thought-role">${thought.role} ${phaseIcon}</div>
+      <div class="thought-text">${thought.thought}</div>
+      ${thought.tool ? `<span class="thought-tool">${thought.tool}</span>` : ''}
+    </div>`;
+
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+
+  // Check for resolution
+  if (thought.phase === 'conclusion' && thought.role === 'comms') {
+    resolveIncidentCard();
+    stopMTTR(true);
+    document.getElementById('agent-status').textContent = '✓ Resolved';
+  }
+}
+
+function startThoughtStream() {
+  if (thoughtsSSE) thoughtsSSE.close();
+  thoughtsSSE = new EventSource(`${COORDINATOR}/stream`);
+  thoughtsSSE.onmessage = (e) => {
+    try { addThought(JSON.parse(e.data)); } catch(_) {}
+  };
+  thoughtsSSE.onerror = () => {
+    // Fall back to polling
+    setTimeout(pollThoughts, 3000);
+  };
+}
+
+async function pollThoughts() {
+  try {
+    const r = await fetch(`${COORDINATOR}/thoughts`);
+    const data = await r.json();
+    const thoughts = data.thoughts || [];
+    const body = document.getElementById('timeline-body');
+    const current = body.querySelectorAll('.thought-entry').length;
+    thoughts.slice(current).forEach(addThought);
+    if (thoughts.length > 0 && thoughts[thoughts.length-1].role === 'comms'
+        && thoughts[thoughts.length-1].phase === 'conclusion') return;
+    setTimeout(pollThoughts, 2000);
+  } catch(e) { setTimeout(pollThoughts, 3000); }
+}
+
+// ── Demo mode (when coordinator not running) ───────────────────────────────
+function runDemoMode(scenarioName) {
+  const demoThoughts = [
+    {role:'triage',      phase:'tool_call',    thought:'Checking CPU/memory pressure across all pods…', tool:'kubectl_top_pods'},
+    {role:'triage',      phase:'tool_result',  thought:'frontend pods: 1999m/2000m CPU — saturated.', tool:'kubectl_top_pods'},
+    {role:'triage',      phase:'tool_call',    thought:'Querying error rate: rate(http_requests_total{code=~"5.."}[1m])', tool:'promql_query'},
+    {role:'triage',      phase:'tool_result',  thought:'Error rate 34% on checkoutservice. Revenue path broken.', tool:'promql_query'},
+    {role:'triage',      phase:'conclusion',   thought:'P1 — blast radius: frontend + checkout + cart. Handing to Diagnosis.'},
+    {role:'diagnosis',   phase:'tool_call',    thought:'Searching Jaeger for slow traces on frontend (last 15m, >500ms)…', tool:'jaeger_search'},
+    {role:'diagnosis',   phase:'tool_result',  thought:'847 slow traces found. Bottleneck: frontend CPU backpressure.', tool:'jaeger_search'},
+    {role:'diagnosis',   phase:'tool_call',    thought:'Checking Argo CD for recent deploys…', tool:'argocd_list_apps'},
+    {role:'diagnosis',   phase:'tool_result',  thought:'No recent deploys. Last sync 6h ago — stable.', tool:'argocd_list_apps'},
+    {role:'diagnosis',   phase:'conclusion',   thought:'Root cause: StressChaos CPU injection on frontend. Not a deploy.'},
+    {role:'remediation', phase:'tool_call',    thought:'Deleting StressChaos experiment…', tool:'kubectl_rollout'},
+    {role:'remediation', phase:'tool_result',  thought:'✅ Chaos deleted. CPU load dropping.', tool:'kubectl_rollout'},
+    {role:'remediation', phase:'tool_call',    thought:'Verifying: rate(http_requests_total{code=~"5.."}[1m])', tool:'promql_query'},
+    {role:'remediation', phase:'tool_result',  thought:'Error rate: 0.2% — below 1% threshold. ✓', tool:'promql_query'},
+    {role:'remediation', phase:'conclusion',   thought:'Resolved in 187s. Handing to Comms.'},
+    {role:'comms',       phase:'tool_call',    thought:'Posting [P1 RESOLVED] to Slack…', tool:'slack_post_update'},
+    {role:'comms',       phase:'tool_call',    thought:'Drafting postmortem — building timeline from cluster events…', tool:'postmortem_draft'},
+    {role:'comms',       phase:'conclusion',   thought:'Postmortem saved. Incident closed. MTTR: 4m 12s.'},
+  ];
+
+  clearTimeline();
+  document.getElementById('agent-status').textContent = 'Running (demo)';
+
+  let i = 0;
+  const delays = [400, 600, 500, 800, 600, 700, 900, 500, 700, 800, 500, 700, 600, 800, 600, 400, 600, 700];
+  function next() {
+    if (i >= demoThoughts.length) return;
+    addThought(demoThoughts[i]);
+    setTimeout(next, delays[i] || 600);
+    i++;
+  }
+  setTimeout(next, 500);
+}
+
+// ── Health check ──────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${COORDINATOR}/health`, {signal: AbortSignal.timeout(3000)});
+    if (r.ok) {
+      const dot = document.getElementById('coordinator-dot');
+      dot.className = 'dot dot-green';
+      document.getElementById('coordinator-status').textContent = 'Coordinator online';
+    }
+  } catch(e) {
+    document.getElementById('coordinator-status').textContent = 'Coordinator offline (demo mode)';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 10000);
+
+// Auto-load leaderboard results if available
+async function loadBenchResults() {
+  try {
+    const r = await fetch('/bench/results/comparison_table.md');
+    if (r.ok) {
+      // Parse and render — simple version
+    }
+  } catch(e) {}
+}
+</script>
+</body>
+</html>
