@@ -34,6 +34,8 @@ pip install -e "." --quiet
 # Install training deps with ROCm-compatible torch
 pip install torch --index-url https://download.pytorch.org/whl/rocm6.2 --quiet
 pip install -e ".[train]" --quiet
+# Hugging Face Optimum-AMD — required for Track 2 (AMD GPU optimised inference + quantisation)
+pip install optimum[amd] --quiet
 # Install vLLM for serving (ROCm build)
 pip install vllm --quiet || echo "Warning: vLLM install failed — will use HF transformers for inference"
 

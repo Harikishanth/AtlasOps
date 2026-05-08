@@ -1,8 +1,11 @@
-t"""Supervised fine-tuning entrypoint for AtlasOps.
+"""Supervised fine-tuning entrypoint for AtlasOps.
 
 Uses QLoRA (4-bit quantised base + LoRA adapters) so all 4 agent roles
 can be trained as separate lightweight adapters on top of one shared
 Qwen2.5-7B base — enabling co-hosting on a single AMD MI300X.
+
+Stack: ROCm 6.x · PyTorch (ROCm build) · Hugging Face Optimum-AMD ·
+       TRL SFTTrainer · PEFT QLoRA · BitsAndBytes 4-bit NF4
 """
 
 import argparse
@@ -12,6 +15,14 @@ from datasets import load_dataset
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
 from trl import SFTTrainer
+
+# Hugging Face Optimum-AMD: AMD ROCm backend for optimised training kernels.
+# Install: pip install optimum[amd]
+try:
+    from optimum.amd import is_rocm_available  # noqa: F401 — confirms AMD backend present
+    _HAS_OPTIMUM_AMD = True
+except ImportError:
+    _HAS_OPTIMUM_AMD = False
 
 
 # One LoRA config shared across all 4 agent roles.

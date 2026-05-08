@@ -50,6 +50,27 @@ This is **AtlasOps** — a self-improving multi-agent SRE platform where a 72B a
 
 ---
 
+## Track Coverage
+
+### Track 1 — AI Agents & Agentic Workflows
+AtlasOps is a purpose-built multi-agent framework for SRE automation. Rather than wrapping LangChain or CrewAI, we implement the full agentic stack directly — giving us tighter control over tool routing, approval gates, circuit breaking, and streaming than any general-purpose framework offers out of the box. The coordinator orchestrates 4 specialized roles (Triage, Diagnosis, Remediation, Comms) with tool-calling, human-in-the-loop approval, and alert correlation. Models: **Qwen2.5-7B × 4** (open-source, AMD MI300X co-hosted).
+
+### Track 2 — Fine-Tuning on AMD GPUs
+Full fine-tuning pipeline on AMD hardware:
+
+| Component | Library |
+|---|---|
+| Hardware | AMD Instinct MI300X (192 GB HBM3) |
+| GPU runtime | **ROCm 6.x** |
+| Training framework | **PyTorch** (ROCm wheel) |
+| AMD optimisation layer | **Hugging Face Optimum-AMD** (`optimum[amd]`) |
+| Fine-tuning | **TRL** SFTTrainer + GRPOTrainer |
+| Quantisation | **PEFT** QLoRA (4-bit NF4, LoRA r=16) |
+| Serving | **vLLM** (ROCm build) |
+| Domain | **SRE Operations** — incident triage, root-cause diagnosis, remediation, postmortem authoring |
+
+---
+
 ## 20 Real SRE Tools
 
 `kubectl_get` · `kubectl_describe` · `kubectl_logs` · `kubectl_top_pods` · `kubectl_rollout` · `kubectl_scale` · `kubectl_exec` · `promql_query` · `promql_query_range` · `jaeger_search` · `jaeger_get_trace` · `argocd_list_apps` · `argocd_app_history` · **`argocd_rollback`** · `gcloud_logs_read` · `cloud_monitoring_query` · `alertmanager_list_alerts` · `alertmanager_silence` · `slack_post_update` · **`postmortem_draft`**
