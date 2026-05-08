@@ -1,6 +1,7 @@
 """Tests for the adversarial scenario designer."""
 
 import json
+import asyncio
 import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -89,21 +90,19 @@ class TestFaultToYaml:
 
 
 class TestDesignScenario:
-    @pytest.mark.asyncio
-    async def test_fallback_on_judge_failure(self, tmp_path, monkeypatch):
-        from agents.adversarial_designer import design_scenario, ADVERSARIAL_DIR
+    def test_fallback_on_judge_failure(self, tmp_path, monkeypatch):
+        from agents.adversarial_designer import design_scenario
         monkeypatch.setattr("agents.adversarial_designer.ADVERSARIAL_DIR", tmp_path)
 
         with patch("agents.adversarial_designer._call_judge",
                    new_callable=AsyncMock, return_value="not valid json at all"):
-            result = await design_scenario([])
+            result = asyncio.run(design_scenario([]))
 
         assert "scenario_id" in result
         assert "manifest_path" in result
         assert Path(result["manifest_path"]).exists()
 
-    @pytest.mark.asyncio
-    async def test_writes_yaml_and_json(self, tmp_path, monkeypatch):
+    def test_writes_yaml_and_json(self, tmp_path, monkeypatch):
         from agents.adversarial_designer import design_scenario
         monkeypatch.setattr("agents.adversarial_designer.ADVERSARIAL_DIR", tmp_path)
 
@@ -118,7 +117,7 @@ class TestDesignScenario:
         })
         with patch("agents.adversarial_designer._call_judge",
                    new_callable=AsyncMock, return_value=mock_spec):
-            result = await design_scenario([])
+            result = asyncio.run(design_scenario([]))
 
         assert (tmp_path / "adv-unit-test-001.yaml").exists()
         assert (tmp_path / "adv-unit-test-001.json").exists()

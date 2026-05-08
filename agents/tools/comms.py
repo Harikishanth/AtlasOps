@@ -11,38 +11,96 @@ from jinja2 import Template
 
 
 SLACK_WEBHOOK = os.getenv("SLACK_WEBHOOK_URL", "")
+DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK_URL", "")
 POSTMORTEM_DIR = Path(os.getenv("POSTMORTEM_DIR", "docs/postmortems"))
+
+_SEV_COLOR_HEX = {"P0": "ff0000", "P1": "ff8800", "P2": "ffcc00"}
+_LOG_PATH = Path("data/slack_posts.jsonl")
+
+
+def _build_slack_payload(channel: str, severity: str, title: str,
+                         summary: str, action_items: list[str]) -> dict:
+    return {
+        "channel": channel,
+        "username": "atlasops-bot",
+        "icon_emoji": ":rotating_light:" if severity in ("P0", "P1") else ":warning:",
+        "attachments": [{
+            "color": "#" + _SEV_COLOR_HEX.get(severity, "888888"),
+            "title": f"[{severity}] {title}",
+            "text": summary,
+            "fields": (
+                [{"title": "Action Items",
+                  "value": "\n".join(f"• {a}" for a in action_items)}]
+                if action_items else []
+            ),
+            "ts": int(datetime.now(timezone.utc).timestamp()),
+        }],
+    }
+
+
+def _post_to_discord(slack_payload: dict) -> None:
+    """Convert Slack payload to Discord embed and POST."""
+    att = slack_payload["attachments"][0]
+    color_int = int(_SEV_COLOR_HEX.get(
+        att["title"].split("]")[0].lstrip("["), "888888"), 16)
+    fields = [
+        {"name": f["title"], "value": f["value"], "inline": False}
+        for f in att.get("fields", []) if f.get("value")
+    ]
+    discord_payload = {
+        "username": slack_payload.get("username", "atlasops-bot"),
+        "embeds": [{
+            "title": att["title"],
+            "description": att.get("text", ""),
+            "color": color_int,
+            "fields": fields,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "footer": {"text": "AtlasOps · AMD MI300X"},
+        }],
+    }
+    requests.post(DISCORD_WEBHOOK, json=discord_payload, timeout=10).raise_for_status()
 
 
 def slack_post_update(channel: str, severity: str, title: str, summary: str,
                       action_items: list[str] | None = None) -> dict[str, Any]:
-    """Post an incident update to Slack. If no webhook is configured, log to local file."""
-    payload = {
-        "channel": channel,
-        "username": "cloudsre-bot",
-        "icon_emoji": ":rotating_light:" if severity in ("P0", "P1") else ":warning:",
-        "attachments": [
-            {
-                "color": {"P0": "#ff0000", "P1": "#ff8800", "P2": "#ffcc00"}.get(severity, "#888"),
-                "title": f"[{severity}] {title}",
-                "text": summary,
-                "fields": [{"title": "Action Items", "value": "\n".join(f"• {a}" for a in (action_items or []))}] if action_items else [],
-                "ts": int(datetime.now(timezone.utc).timestamp()),
-            }
-        ],
+    """Post an incident update.
+
+    Always writes to local log (powers the UI feed).
+    Also delivers to Slack if SLACK_WEBHOOK_URL is set.
+    Also delivers to Discord if DISCORD_WEBHOOK_URL is set.
+    """
+    payload = _build_slack_payload(channel, severity, title, summary, action_items or [])
+
+    # Always persist locally — powers /slack/feed in the UI
+    _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _LOG_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload) + "\n")
+
+    # Preserve a stable mode label for downstream tests/integrations that
+    # differentiate "logged locally only" from external webhook delivery.
+    modes: list[str] = ["logged_locally"]
+    errors: list[str] = []
+
+    if SLACK_WEBHOOK:
+        try:
+            r = requests.post(SLACK_WEBHOOK, json=payload, timeout=10)
+            r.raise_for_status()
+            modes.append("slack")
+        except requests.RequestException as e:
+            errors.append(f"slack: {e}")
+
+    if DISCORD_WEBHOOK:
+        try:
+            _post_to_discord(payload)
+            modes.append("discord")
+        except requests.RequestException as e:
+            errors.append(f"discord: {e}")
+
+    return {
+        "success": True,
+        "mode": "+".join(modes),
+        **({"errors": errors} if errors else {}),
     }
-    if not SLACK_WEBHOOK:
-        log_path = Path("data/slack_posts.jsonl")
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        with log_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload) + "\n")
-        return {"success": True, "mode": "logged_locally", "path": str(log_path)}
-    try:
-        r = requests.post(SLACK_WEBHOOK, json=payload, timeout=10)
-        r.raise_for_status()
-        return {"success": True, "mode": "posted"}
-    except requests.RequestException as e:
-        return {"success": False, "error": str(e)}
 
 
 POSTMORTEM_TEMPLATE = """# Postmortem: {{ title }}

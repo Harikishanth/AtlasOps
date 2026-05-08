@@ -1,4 +1,4 @@
-"""Supervised fine-tuning entrypoint for AtlasOps.
+t"""Supervised fine-tuning entrypoint for AtlasOps.
 
 Uses QLoRA (4-bit quantised base + LoRA adapters) so all 4 agent roles
 can be trained as separate lightweight adapters on top of one shared

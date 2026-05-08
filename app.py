@@ -7,14 +7,21 @@ This is what HF Spaces runs via the Dockerfile.
 import json
 import os
 import subprocess
+import time
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 # Import coordinator internals
 from agents.coordinator import handle_incident, app as coordinator_app
+from agents.approval import approval_gate
+from agents.audit import audit_log
+from agents.circuit_breaker import circuit_breaker
+from agents.correlator import correlator
 from agents.stream import subscribe, get_history
 
 app = FastAPI(title="AtlasOps", docs_url="/api/docs")
@@ -28,6 +35,31 @@ if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
+class InjectRequest(BaseModel):
+    scenario_id: str = Field(min_length=1)
+    name: str | None = None
+
+
+class InjectResponse(BaseModel):
+    ok: bool
+    scenario_id: str
+    correlation_id: str
+
+
+class RuntimeConfigResponse(BaseModel):
+    coordinator_url: str
+    grafana_url: str
+    argocd_url: str
+    boutique_url: str
+
+
+class ApprovalCallbackRequest(BaseModel):
+    token: str = Field(min_length=1)
+    decision: str = Field(min_length=1)
+    approved_by: str = ""
+    reason: str = ""
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     index = static_dir / "index.html"
@@ -39,8 +71,9 @@ async def root():
 @app.post("/inject")
 async def inject_chaos(request: Request):
     """Apply a chaos scenario manifest to the real GKE cluster."""
-    body = await request.json()
-    scenario_id = body.get("scenario_id", "")
+    body = InjectRequest.model_validate(await request.json())
+    scenario_id = body.scenario_id
+    correlation_id = f"inj-{int(time.time())}-{uuid.uuid4().hex[:8]}"
     manifest = Path("bench/chaos_manifests") / f"{scenario_id}.yaml"
 
     if not manifest.exists():
@@ -57,11 +90,13 @@ async def inject_chaos(request: Request):
 
     # Fire the incident through the coordinator after a brief wait
     import asyncio
-    asyncio.create_task(_handle_after_delay(body.get("name", scenario_id)))
-    return JSONResponse({"ok": True, "scenario_id": scenario_id})
+    asyncio.create_task(_handle_after_delay(body.name or scenario_id, scenario_id, correlation_id))
+    return JSONResponse(
+        InjectResponse(ok=True, scenario_id=scenario_id, correlation_id=correlation_id).model_dump()
+    )
 
 
-async def _handle_after_delay(name: str):
+async def _handle_after_delay(name: str, scenario_id: str, correlation_id: str):
     import asyncio
     await asyncio.sleep(20)
     from agents.tools.alertmanager import alertmanager_list_alerts
@@ -69,6 +104,8 @@ async def _handle_after_delay(name: str):
     alert = {
         "commonLabels": {"alertname": result["alerts"][0]["alertname"] if result.get("alerts") else name},
         "alerts": result.get("alerts", []),
+        "scenario_id": scenario_id,
+        "correlation_id": correlation_id,
     }
     await handle_incident(alert)
 
@@ -107,6 +144,153 @@ async def health():
         "model": os.getenv("AGENT_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
         "backend": os.getenv("BACKEND", "vllm"),
     })
+
+
+@app.get("/config")
+async def runtime_config():
+    """Expose runtime URLs so UI doesn't rely on hardcoded IPs."""
+    coordinator_url = os.getenv("COORDINATOR_URL", "http://localhost:9099")
+    grafana_url = os.getenv("GRAFANA_URL", "")
+    argocd_url = os.getenv("ARGOCD_URL", "")
+    boutique_url = os.getenv("BOUTIQUE_URL", "")
+    return JSONResponse(
+        RuntimeConfigResponse(
+            coordinator_url=coordinator_url,
+            grafana_url=grafana_url,
+            argocd_url=argocd_url,
+            boutique_url=boutique_url,
+        ).model_dump()
+    )
+
+
+@app.post("/approval/callback")
+async def approval_callback(request: Request):
+    payload = ApprovalCallbackRequest.model_validate(await request.json())
+    result = approval_gate.callback(
+        token=payload.token,
+        decision=payload.decision,
+        approved_by=payload.approved_by,
+        reason=payload.reason,
+    )
+    status = 200 if result.get("ok") else 400
+    return JSONResponse(result, status_code=status)
+
+
+@app.get("/approval/pending")
+async def approval_pending():
+    return JSONResponse({"pending": approval_gate.pending()})
+
+
+@app.get("/circuit-breaker/status")
+async def circuit_breaker_status():
+    return JSONResponse(circuit_breaker.status())
+
+
+@app.post("/circuit-breaker/reset")
+async def circuit_breaker_reset():
+    return JSONResponse(circuit_breaker.reset())
+
+
+@app.get("/incidents/active")
+async def incidents_active():
+    return JSONResponse({"incidents": correlator.get_active()})
+
+
+@app.get("/audit/log")
+async def audit_log_entries(limit: int = 100, offset: int = 0):
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+    return JSONResponse({"entries": audit_log.tail(limit=limit, offset=offset)})
+
+
+@app.get("/audit/verify")
+async def audit_verify():
+    return JSONResponse(audit_log.verify_integrity())
+
+
+_TOPOLOGY_SERVICES = [
+    "frontend", "cartservice", "checkoutservice", "paymentservice",
+    "currencyservice", "shippingservice", "emailservice",
+    "recommendationservice", "productcatalogservice", "adservice", "redis-cart",
+]
+
+
+@app.get("/cluster/health")
+async def cluster_health():
+    """Per-service health from kubectl get pods -n default."""
+    env = os.environ.copy()
+    env["USE_GKE_GCLOUD_AUTH_PLUGIN"] = "True"
+    try:
+        r = subprocess.run(
+            ["kubectl", "get", "pods", "-n", "default", "-o", "json"],
+            capture_output=True, text=True, env=env, timeout=8,
+        )
+        if r.returncode != 0:
+            return JSONResponse({"ok": False, "services": {}})
+
+        items = json.loads(r.stdout).get("items", [])
+        services: dict = {}
+
+        for pod in items:
+            meta = pod.get("metadata", {})
+            app_label = meta.get("labels", {}).get("app", "")
+            if app_label not in _TOPOLOGY_SERVICES:
+                continue
+
+            status = pod.get("status", {})
+            phase = status.get("phase", "Unknown")
+            cs = status.get("containerStatuses", [])
+            restarts = sum(c.get("restartCount", 0) for c in cs)
+            ready_count = sum(1 for c in cs if c.get("ready", False))
+            total = len(cs)
+
+            if phase == "Running" and ready_count == total and total > 0:
+                health = "healthy"
+            elif phase in ("Pending", "Terminating"):
+                health = "degraded"
+            else:
+                health = "down"
+
+            if app_label in services:
+                prev = services[app_label]
+                # worst-case wins
+                if "down" in (health, prev["status"]):
+                    health = "down"
+                elif "degraded" in (health, prev["status"]):
+                    health = "degraded"
+                services[app_label]["restarts"] = max(prev["restarts"], restarts)
+                services[app_label]["status"] = health
+            else:
+                services[app_label] = {
+                    "status": health,
+                    "restarts": restarts,
+                    "ready": f"{ready_count}/{total}",
+                    "phase": phase,
+                }
+
+        for svc in _TOPOLOGY_SERVICES:
+            if svc not in services:
+                services[svc] = {"status": "unknown", "restarts": 0, "ready": "0/0", "phase": "?"}
+
+        total_healthy = sum(1 for s in services.values() if s["status"] == "healthy")
+        return JSONResponse({"ok": True, "services": services, "healthy": total_healthy, "total": len(_TOPOLOGY_SERVICES)})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e), "services": {}})
+
+
+@app.get("/slack/feed")
+async def slack_feed():
+    """Return last 30 comms posts from the local log (powers the UI feed)."""
+    log_path = Path("data/slack_posts.jsonl")
+    if not log_path.exists():
+        return JSONResponse({"posts": []})
+    posts = []
+    for line in log_path.read_text(encoding="utf-8").strip().splitlines():
+        try:
+            posts.append(json.loads(line))
+        except json.JSONDecodeError:
+            pass
+    return JSONResponse({"posts": posts[-30:]})
 
 
 if __name__ == "__main__":

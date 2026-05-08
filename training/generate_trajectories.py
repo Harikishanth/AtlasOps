@@ -15,99 +15,17 @@ import argparse
 import asyncio
 import json
 import logging
-import math
 import subprocess
 import time
 from pathlib import Path
 
 from agents.coordinator import handle_incident
 from agents.judge import judge_trajectory
+from config.runtime import evaluate_reward_contract
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("trajectories")
-
-
-def _clamp01(v: float) -> float:
-    return max(0.0, min(1.0, v))
-
-
-def _bounded_speed_score(seconds: float, tier: str) -> float:
-    midpoint = {
-        "warmup": 90.0,
-        "single_fault": 150.0,
-        "cascade": 240.0,
-        "multi_fault": 300.0,
-        "named_replays": 300.0,
-        "adversarial": 360.0,
-    }.get(tier, 240.0)
-    slope = 40.0
-    return max(0.0, min(1.0, 1.0 / (1.0 + math.exp((seconds - midpoint) / slope))))
-
-
-def _evaluate_reward_contract(episode: dict) -> dict:
-    """Benchmark-aligned, anti-gaming reward contract."""
-    tier = str(episode.get("tier", "unknown"))
-    resolved = bool(episode.get("resolved", False))
-    outcome = str(episode.get("outcome", "unknown"))
-    turns = int(episode.get("total_turns", 0))
-    ttr = float(episode.get("time_to_resolve_s", 9999))
-    judge = episode.get("judge", {}) or {}
-    reasoning = float(judge.get("reasoning", 0.0))
-    correctness = float(judge.get("correctness", 0.0))
-    efficiency = float(judge.get("efficiency", 0.0))
-
-    r_resolve = 1.0 if resolved else (0.5 if outcome == "partial" else 0.0)
-    r_speed = _bounded_speed_score(ttr, tier)
-    r_evidence = _clamp01((reasoning + correctness) / 2.0)
-    r_safety = _clamp01(efficiency)
-    r_comms = 1.0 if episode.get("postmortem_path") else 0.3
-
-    penalties = {
-        "command_spam": 0.10 if turns > 40 else 0.0,
-        "false_resolution": 0.25 if (not resolved and outcome == "resolved") else 0.0,
-        "unsafe_shortcut": 0.20 if efficiency < 0.3 else 0.0,
-        "hallucinated_evidence": 0.20 if (reasoning < 0.25 and correctness < 0.5) else 0.0,
-        "over_silence": 0.10 if ("silence" in json.dumps(episode).lower() and not resolved) else 0.0,
-    }
-
-    weights = {
-        "r_resolve": 0.35,
-        "r_speed": 0.15,
-        "r_evidence": 0.20,
-        "r_safety": 0.20,
-        "r_comms": 0.10,
-    }
-    if tier == "single_fault":
-        weights.update({"r_evidence": 0.25, "r_speed": 0.10})
-    elif tier == "cascade":
-        weights.update({"r_resolve": 0.30, "r_evidence": 0.25, "r_speed": 0.10})
-    elif tier == "multi_fault":
-        weights.update({"r_safety": 0.25, "r_evidence": 0.25, "r_speed": 0.10})
-    elif tier in ("adversarial", "named_replays"):
-        penalties = {k: v * 1.25 for k, v in penalties.items()}
-        weights.update({"r_safety": 0.25, "r_evidence": 0.25, "r_speed": 0.05})
-
-    weighted = (
-        weights["r_resolve"] * r_resolve
-        + weights["r_speed"] * r_speed
-        + weights["r_evidence"] * r_evidence
-        + weights["r_safety"] * r_safety
-        + weights["r_comms"] * r_comms
-    )
-    total = _clamp01(weighted - sum(penalties.values()))
-    return {
-        "components": {
-            "resolve": round(r_resolve, 4),
-            "speed": round(r_speed, 4),
-            "evidence": round(r_evidence, 4),
-            "safety": round(r_safety, 4),
-            "comms": round(r_comms, 4),
-        },
-        "penalties": {k: round(v, 4) for k, v in penalties.items()},
-        "penalty_total": round(sum(penalties.values()), 4),
-        "total": round(total, 4),
-    }
 
 
 def list_scenarios(manifests_root: Path) -> list[Path]:
@@ -234,7 +152,8 @@ async def run() -> None:
                     "postmortem_path": incident.get("comms", {}).get("final", {}).get("postmortem_path"),
                     "judge": judge_score,
                 }
-                reward_contract = _evaluate_reward_contract(episode)
+                # Use the same shared reward contract used by benchmark + GRPO.
+                reward_contract = evaluate_reward_contract(episode)
                 examples = trajectory_to_sft_examples(
                     scenario_id, tier, incident, judge_score, reward_contract
                 )

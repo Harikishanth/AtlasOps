@@ -34,6 +34,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from config.runtime import LEADERBOARD_SCENARIOS
+
 log = logging.getLogger(__name__)
 
 RESULTS_DIR = Path("bench/results/leaderboard")
@@ -87,18 +89,6 @@ MODELS = {
         "params": "7B+LoRA",
     },
 }
-
-# Evaluation scenarios — fixed set for reproducibility
-EVAL_SCENARIOS = [
-    ("single_fault/sf-001", "single_fault"),   # pod-kill
-    ("single_fault/sf-002", "single_fault"),   # CPU hog
-    ("single_fault/sf-006", "single_fault"),   # DNS failure
-    ("cascade/cs-001",      "cascade"),        # currency latency chain
-    ("cascade/cs-002",      "cascade"),        # Redis partition cascade
-    ("named_replays/hist-cloudflare-2019", "named_replays"),
-    ("named_replays/hist-github-2018",     "named_replays"),
-]
-
 
 # ── Chaos helpers ─────────────────────────────────────────────────────────────
 
@@ -164,10 +154,12 @@ async def run_episode(model_cfg: dict, scenario_id: str, tier: str) -> dict:
     else:
         os.environ.pop("LLM_API_KEY", None)
 
-    # Reload coordinator module so it picks up new env vars
-    import importlib
+    # Patch module-level config directly — avoids reload which corrupts singletons
+    # (circuit_breaker, audit_log, correlator) that live in imported sub-modules.
     import agents.coordinator as coord_mod
-    importlib.reload(coord_mod)
+    coord_mod.VLLM_BASE  = model_cfg["base_url"]
+    coord_mod.MODEL_NAME = model_cfg["model_id"]
+    coord_mod.API_KEY    = os.environ.get("LLM_API_KEY", "")
 
     from agents.coordinator import handle_incident
     from agents.judge import judge_trajectory
@@ -381,7 +373,7 @@ async def main():
         return
 
     log.info("Running leaderboard: %d models × %d scenarios", len(runnable), args.episodes)
-    scenarios = EVAL_SCENARIOS[:args.episodes]
+    scenarios = LEADERBOARD_SCENARIOS[:args.episodes]
 
     all_results = []
     for model_key in runnable:

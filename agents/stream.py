@@ -21,7 +21,7 @@ class ThoughtEvent:
                  result_summary: str = ""):
         self.ts        = time.time()
         self.role      = role       # triage / diagnosis / remediation / comms
-        self.phase     = phase      # thinking / tool_call / tool_result / conclusion
+        self.phase     = phase      # thinking / tool_call / tool_result / waiting_approval / conclusion
         self.thought   = thought    # human-readable narration
         self.tool      = tool       # tool name if phase=tool_call
         self.result_summary = result_summary

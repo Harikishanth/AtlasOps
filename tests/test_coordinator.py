@@ -1,8 +1,9 @@
 """Tests for coordinator routing and tool narration."""
 
 import json
+import asyncio
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestToolNarration:
@@ -90,3 +91,38 @@ class TestBackendConfig:
         import agents.coordinator as coord
         importlib.reload(coord)
         assert coord.API_KEY == ""
+
+
+class TestApprovalFlow:
+    def test_manual_mode_skips_remediation_agent(self, monkeypatch):
+        import agents.coordinator as coord
+
+        triage = {"role": "triage", "trajectory": [], "final": {"severity": "P0"}}
+        diagnosis = {"role": "diagnosis", "trajectory": [], "final": {"root_cause": "cpu spike"}}
+        comms = {"role": "comms", "trajectory": [], "final": {"status": "posted"}}
+        mock_call = AsyncMock(side_effect=[triage, diagnosis, comms])
+        monkeypatch.setattr(coord, "call_agent", mock_call)
+
+        result = asyncio.run(coord.handle_incident({"commonLabels": {"alertname": "TestAlert"}}))
+        assert result["remediation"]["final"]["mode"] == "manual"
+        roles = [c.args[0] for c in mock_call.call_args_list]
+        assert roles == ["triage", "diagnosis", "comms"]
+
+    def test_approve_mode_rejected_skips_remediation_execution(self, monkeypatch):
+        import agents.coordinator as coord
+
+        triage = {"role": "triage", "trajectory": [], "final": {"severity": "P1"}}
+        diagnosis = {"role": "diagnosis", "trajectory": [], "final": {"root_cause": "bad deploy"}}
+        comms = {"role": "comms", "trajectory": [], "final": {"status": "posted"}}
+        mock_call = AsyncMock(side_effect=[triage, diagnosis, comms])
+        monkeypatch.setattr(coord, "call_agent", mock_call)
+
+        async def fake_wait(_incident_id):
+            return {"status": "rejected", "approved_by": "oncall", "reason": "needs more evidence"}
+
+        monkeypatch.setattr(coord.approval_gate, "wait_for_decision", fake_wait)
+
+        result = asyncio.run(coord.handle_incident({"commonLabels": {"alertname": "TestAlert"}}))
+        assert result["remediation"]["final"]["status"] == "approval_rejected"
+        roles = [c.args[0] for c in mock_call.call_args_list]
+        assert roles == ["triage", "diagnosis", "comms"]

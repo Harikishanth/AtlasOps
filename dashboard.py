@@ -19,10 +19,11 @@ import requests
 
 
 # ── Config ───────────────────────────────────────────────────────────────────
-GRAFANA_IP      = os.getenv("GRAFANA_IP",      "136.119.60.129")
-JAEGER_IP       = os.getenv("JAEGER_IP",       "")
-ARGOCD_IP       = os.getenv("ARGOCD_IP",       "34.122.132.237")
-BOUTIQUE_IP     = os.getenv("BOUTIQUE_IP",     "34.132.118.204")
+# Keep runtime URLs environment-driven to avoid stale hardcoded infra endpoints.
+GRAFANA_URL     = os.getenv("GRAFANA_URL", "")
+JAEGER_URL      = os.getenv("JAEGER_URL", "")
+ARGOCD_URL      = os.getenv("ARGOCD_URL", "")
+BOUTIQUE_URL    = os.getenv("BOUTIQUE_URL", "")
 COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://localhost:9099")
 
 ROLE_ICONS  = {"triage": "🔴", "diagnosis": "🔍", "remediation": "🔧", "comms": "📣"}
@@ -139,6 +140,18 @@ def _fetch_thoughts() -> str:
         return "_Coordinator not running. Start with: `python agents/coordinator.py`_"
 
 
+def _grafana_iframe_html() -> str:
+    if not GRAFANA_URL:
+        return (
+            "<div style='padding:20px;border:1px solid #333;border-radius:8px;'>"
+            "Grafana URL not configured. Set `GRAFANA_URL` to enable embedded metrics."
+            "</div>"
+        )
+    base = GRAFANA_URL.rstrip("/")
+    src = f"{base}/d/k8s_views_pods/kubernetes-views-pods?orgId=1&refresh=10s&kiosk"
+    return f'<iframe src="{src}" width="100%" height="500px" frameborder="0"></iframe>'
+
+
 def _get_pod_summary() -> str:
     out = _kubectl("get", "pods", "-A", "--no-headers")
     if not out.strip():
@@ -157,9 +170,9 @@ def build_live_ops_tab():
     with gr.Tab("🚨 Live Ops"):
         gr.Markdown(f"""
 ## Real GKE Cluster — `atlasops` (us-central1)
-**Grafana:** [http://{GRAFANA_IP}](http://{GRAFANA_IP}) &nbsp;|&nbsp;
-**Boutique:** [http://{BOUTIQUE_IP}](http://{BOUTIQUE_IP}) &nbsp;|&nbsp;
-**Argo CD:** [https://{ARGOCD_IP}](https://{ARGOCD_IP})
+**Grafana:** {GRAFANA_URL or 'not configured'} &nbsp;|&nbsp;
+**Boutique:** {BOUTIQUE_URL or 'not configured'} &nbsp;|&nbsp;
+**Argo CD:** {ARGOCD_URL or 'not configured'}
 """)
 
         with gr.Row():
@@ -181,7 +194,7 @@ def build_live_ops_tab():
 
             with gr.Column(scale=2):
                 gr.Markdown(f"### Grafana Live (real GKE metrics)")
-                gr.HTML(f'<iframe src="http://{GRAFANA_IP}/d/k8s_views_pods/kubernetes-views-pods?orgId=1&refresh=10s&kiosk" width="100%" height="500px" frameborder="0"></iframe>')
+                gr.HTML(_grafana_iframe_html())
 
         gr.Markdown("### 🧠 Agent Live Thoughts")
         thoughts_out = gr.Markdown(

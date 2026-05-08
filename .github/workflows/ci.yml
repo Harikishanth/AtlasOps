@@ -28,8 +28,12 @@ jobs:
       - name: Run tool unit tests (mocked)
         run: pytest tests/test_tools.py tests/test_coordinator.py -v
 
+      - name: Run app endpoint smoke tests (mocked)
+        run: pytest tests/test_app_endpoints.py tests/test_bench_runner.py -v
+
       - name: Check all Python files compile
         run: |
+          python -m py_compile app.py
           python -m py_compile agents/coordinator.py
           python -m py_compile agents/stream.py
           python -m py_compile agents/judge.py

@@ -27,26 +27,12 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from config.runtime import EVAL_SCENARIOS_BY_TIER
+
 log = logging.getLogger(__name__)
 
 RESULTS_DIR = Path("bench/results/eval")
 MANIFESTS_DIR = Path("bench/chaos_manifests")
-
-EVAL_SCENARIOS = {
-    "single_fault": [
-        "single_fault/sf-001", "single_fault/sf-002", "single_fault/sf-003",
-        "single_fault/sf-004", "single_fault/sf-005",
-    ],
-    "cascade": [
-        "cascade/cs-001", "cascade/cs-002", "cascade/cs-003",
-    ],
-    "named_replays": [
-        "named_replays/hist-cloudflare-2019",
-        "named_replays/hist-github-2018",
-        "named_replays/hist-discord-2022",
-    ],
-}
-
 
 def apply_chaos(scenario_id: str) -> bool:
     manifest = MANIFESTS_DIR / f"{scenario_id}.yaml"
@@ -105,7 +91,7 @@ async def run_episode(scenario_id: str) -> dict:
         reset_chaos()
         return {"scenario_id": scenario_id, "status": "error", "error": str(e), "tier": tier}
 
-    reset_cluster()
+    reset_chaos()
 
     remediation = incident.get("remediation", {}).get("final", {})
     total_turns = sum(
@@ -220,7 +206,7 @@ async def main():
     tiers = [t.strip() for t in args.tiers.split(",")]
     scenarios = []
     for tier in tiers:
-        scenarios.extend(EVAL_SCENARIOS.get(tier, []))
+        scenarios.extend(EVAL_SCENARIOS_BY_TIER.get(tier, []))
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 

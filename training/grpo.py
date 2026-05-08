@@ -20,7 +20,6 @@ import argparse
 import asyncio
 import json
 import logging
-import math
 import os
 import random
 import subprocess
@@ -31,6 +30,10 @@ from typing import Any, Callable
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
 from trl import GRPOConfig, GRPOTrainer
+from config.runtime import (
+    SCENARIOS_BY_TIER, TIER_SAMPLING_WEIGHTS, evaluate_reward_contract,
+    CurriculumManager,
+)
 
 log = logging.getLogger(__name__)
 
@@ -57,86 +60,35 @@ BNBCONFIG = BitsAndBytesConfig(
 
 # ── Reward contract ───────────────────────────────────────────────────────────
 
-def _clamp01(v: float) -> float:
-    return max(0.0, min(1.0, v))
-
-
-def _bounded_speed_score(seconds: float, tier: str) -> float:
-    midpoint = {"warmup": 90.0, "single_fault": 150.0, "cascade": 240.0,
-                "multi_fault": 300.0, "named_replays": 300.0, "adversarial": 360.0}.get(tier, 240.0)
-    return max(0.0, min(1.0, 1.0 / (1.0 + math.exp((seconds - midpoint) / 40.0))))
+# Training-run curriculum singleton (tracks mastery + spaced repetition)
+_curriculum = CurriculumManager()
 
 
 def compute_reward(episode: dict) -> float:
-    """Tier-aware anti-gaming reward contract — identical to bench/runner.py."""
-    tier     = str(episode.get("tier", "unknown"))
-    resolved = bool(episode.get("resolved", False))
-    outcome  = str(episode.get("outcome", "unknown"))
-    turns    = int(episode.get("total_turns", 0))
-    ttr      = float(episode.get("time_to_resolve_s", 9999))
-    judge    = episode.get("judge", {}) or {}
+    """Blend episode-level contract reward (70%) with dense step rewards (30%).
 
-    r_resolve  = 1.0 if resolved else (0.5 if outcome == "partial" else 0.0)
-    r_speed    = _bounded_speed_score(ttr, tier)
-    r_evidence = _clamp01((float(judge.get("reasoning", 0)) + float(judge.get("correctness", 0))) / 2.0)
-    r_safety   = _clamp01(float(judge.get("efficiency", 0)))
-    r_comms    = 1.0 if episode.get("postmortem_path") else 0.3
-
-    penalties = {
-        "command_spam":          0.10 if turns > 40 else 0.0,
-        "false_resolution":      0.25 if (not resolved and outcome == "resolved") else 0.0,
-        "unsafe_shortcut":       0.20 if r_safety < 0.3 else 0.0,
-        "hallucinated_evidence": 0.20 if (float(judge.get("reasoning", 1)) < 0.25
-                                          and float(judge.get("correctness", 1)) < 0.5) else 0.0,
-        "over_silence":          0.10 if ("silence" in json.dumps(episode).lower()
-                                          and not resolved) else 0.0,
-    }
-
-    weights = {"r_resolve": 0.35, "r_speed": 0.15, "r_evidence": 0.20,
-               "r_safety": 0.20, "r_comms": 0.10}
-    if tier == "cascade":
-        weights.update({"r_resolve": 0.30, "r_evidence": 0.25, "r_speed": 0.10})
-    elif tier == "multi_fault":
-        weights.update({"r_safety": 0.25, "r_evidence": 0.25, "r_speed": 0.10})
-    elif tier in ("adversarial", "named_replays"):
-        penalties = {k: v * 1.25 for k, v in penalties.items()}
-        weights.update({"r_safety": 0.25, "r_evidence": 0.25, "r_speed": 0.05})
-
-    weighted = (weights["r_resolve"] * r_resolve + weights["r_speed"] * r_speed
-                + weights["r_evidence"] * r_evidence + weights["r_safety"] * r_safety
-                + weights["r_comms"] * r_comms)
-    return _clamp01(weighted - sum(penalties.values()))
-
-
-# ── Curriculum — tier-weighted scenario sampling ──────────────────────────────
-
-SCENARIOS_BY_TIER = {
-    "single_fault": [f"single_fault/sf-{i:03d}" for i in range(1, 9)],
-    "cascade":      [f"cascade/cs-{i:03d}" for i in range(1, 6)],
-    "multi_fault":  [f"multi_fault/mf-{i:03d}" for i in range(1, 6)],
-    "named_replays": [
-        "named_replays/hist-cloudflare-2019",
-        "named_replays/hist-github-2018",
-        "named_replays/hist-discord-2022",
-        "named_replays/hist-datadog-2023",
-        "named_replays/hist-aws-s3-2017",
-    ],
-}
-
-TIER_WEIGHTS = {
-    "single_fault": 0.20,
-    "cascade":      0.30,
-    "multi_fault":  0.25,
-    "named_replays": 0.25,
-}
+    Dense step rewards sum tool-call-level progress signals from StepRewardTracker.
+    Normalised over 10 (typical episode has 15-30 tool calls, each capped at 0.99).
+    """
+    contract = float(evaluate_reward_contract(episode)["total"])
+    # Sum dense rewards across all four agent roles
+    step_total = sum(
+        role_data.get("step_reward_summary", {}).get("dense_reward_total", 0.0)
+        for role in ("triage", "diagnosis", "remediation", "comms")
+        for role_data in [episode.get(role, {})]
+    )
+    step_norm = max(0.0, min(1.0, step_total / 10.0))
+    return round(0.7 * contract + 0.3 * step_norm, 4)
 
 
 def sample_scenario(tiers: list[str]) -> tuple[str, str]:
-    """Sample a (scenario_id, tier) from the curriculum."""
-    weights = [TIER_WEIGHTS.get(t, 0.25) for t in tiers]
-    tier = random.choices(tiers, weights=weights)[0]
-    scenario = random.choice(SCENARIOS_BY_TIER.get(tier, SCENARIOS_BY_TIER["single_fault"]))
-    return scenario, tier
+    """Use CurriculumManager priority scoring (spaced repetition + weakness targeting)."""
+    pool = [
+        (sid, sid.split("/")[0])
+        for tier in tiers
+        for sid in SCENARIOS_BY_TIER.get(tier, [])
+    ]
+    return _curriculum.next_scenario(pool)
 
 
 def apply_chaos(scenario_id: str) -> bool:
@@ -179,6 +131,10 @@ class OnlineRewardFunction:
         self.coordinator_url = coordinator_url
         self._loop = asyncio.new_event_loop()
 
+    def __del__(self):
+        if not self._loop.is_closed():
+            self._loop.close()
+
     def __call__(self, completions: list[str], prompts: list[str],
                  **kwargs) -> list[float]:
         """Called by TRL after generating G completions. Returns reward per completion."""
@@ -209,11 +165,24 @@ class OnlineRewardFunction:
             if isinstance(result, Exception):
                 rewards.append(0.0)
             else:
-                rewards.append(compute_reward(result))
+                r = compute_reward(result)
+                rewards.append(r)
+                # Feed result back to curriculum for spaced-rep + mastery tracking
+                _curriculum.record(
+                    scenario_id=scenario_id,
+                    resolved=bool(result.get("resolved", False)),
+                    reward=r,
+                )
 
-        log.info("Scenario %s | rewards: min=%.3f max=%.3f mean=%.3f",
-                 scenario_id,
-                 min(rewards), max(rewards), sum(rewards) / len(rewards))
+        cur_stats = _curriculum.stats()
+        log.info(
+            "Scenario %s | rewards: min=%.3f max=%.3f mean=%.3f | "
+            "curriculum: %d tried, %d graduated, %d due for resurface",
+            scenario_id,
+            min(rewards), max(rewards), sum(rewards) / len(rewards),
+            cur_stats["scenarios_tried"], cur_stats["graduated"],
+            cur_stats["due_for_resurface"],
+        )
         return rewards
 
     async def _run_one_rollout(self, completion_text: str,
@@ -281,7 +250,7 @@ def run_optuna_search(model_path: str, tiers: list[str], output_dir: str,
             per_device_train_batch_size=1,
             bf16=True, max_steps=10, report_to=[], optim="paged_adamw_8bit",
         )
-        grpo_cfg = GRPOConfig(num_generations=num_gen, beta=beta, max_completion_length=256)
+        grpo_cfg = GRPOConfig(num_generations=num_gen, beta=beta, max_completion_length=256, loss_type="dapo")
         trainer = GRPOTrainer(
             model=model, args=train_args, train_dataset=dataset,
             processing_class=tokenizer, grpo_config=grpo_cfg,
@@ -409,6 +378,7 @@ def main() -> None:
         num_generations=num_gen,
         max_completion_length=args.max_compl_len,
         beta=beta,
+        loss_type="dapo",
     )
 
     trainer = GRPOTrainer(

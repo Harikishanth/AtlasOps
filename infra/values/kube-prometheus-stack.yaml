@@ -2,7 +2,10 @@ grafana:
   enabled: true
   service:
     type: LoadBalancer
-  adminPassword: "cloudsre-admin"
+  # Do not commit static admin passwords. Set via one of:
+  # - grafana.admin.existingSecret
+  # - helm --set-file for secure CI/CD injection
+  # Grafana chart will generate a random admin password if none is provided.
   grafana.ini:
     server:
       root_url: "%(protocol)s://%(domain)s/"
@@ -30,11 +33,16 @@ prometheus:
 
 alertmanager:
   alertmanagerSpec:
-    configSecret: alertmanager-cloudsre-config
+    # Keep this name aligned with infra/setup.sh where the Secret is created.
+    # A mismatch here makes Alertmanager start with the chart default config,
+    # which silently bypasses the coordinator webhook route.
+    configSecret: alertmanager-AtlasOps-config
   service:
     type: ClusterIP
 
-# GKE Autopilot: disable components that require hostPID/hostNetwork/hostPath or kube-system access
+# Disable components that require hostPID/hostPath or managed control-plane access.
+# nodeExporter needs hostPath; kube{Proxy,Etcd,ControllerManager,Scheduler} target
+# GKE-managed endpoints that are inaccessible on Standard clusters.
 nodeExporter:
   enabled: false
 

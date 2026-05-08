@@ -53,7 +53,7 @@ We separated the roles. Each agent has a single job, a strict output format, and
 
 The most interesting design decision: **Qwen2.5-72B as the adversarial designer AND evaluator, co-hosted on the MI300X alongside the 4 × 7B agents.**
 
-kube-sre-gym used Claude (external API) for this. Every episode design costs an API call. Every judgment costs an API call.
+External API baselines incur API cost on every episode design and every judgment call.
 
 We co-host everything on one AMD MI300X (192 GB HBM3). The 7B agents in 4-bit are ~4 GB each. The 72B judge in 4-bit is ~37 GB. Total: ~53 GB. The MI300X has 192 GB. We're not even using a third of the memory.
 
@@ -156,6 +156,39 @@ See [bench/results/comparison_table.md](bench/results/comparison_table.md) for t
 | GRPO (SFT→GRPO, 200 steps) | **82%** | **0.729** | **78%** | **72%** |
 
 The +28pp improvement baseline→GRPO is real. The cascade tier improvement (+38pp) is the most meaningful because cascades are what actually page on-call engineers at 3am.
+
+---
+
+## Reproducibility and Judge Workflow
+
+We tightened reproducibility so reviewers can verify quality without running the full
+training stack:
+
+```bash
+python -m pytest tests/test_app_endpoints.py tests/test_coordinator.py tests/test_tools.py tests/test_bench_runner.py -q
+python scripts/release_gate.py --strict --output docs/RELEASE_READINESS.md
+```
+
+- The smoke suite validates the core app/coordinator/tools/reward contract path.
+- The release gate validates required evidence, scenario inventory, runtime wiring, and benchmark outputs.
+- The dashboard benchmark panel reads directly from `bench/results/comparison_table.md` so displayed numbers track generated artifacts.
+- New safety layers are now test-covered: approval gates, circuit breaker, incident correlation, and immutable audit trail.
+
+### New production endpoints
+
+The latest build exposes lightweight ops endpoints for verification:
+
+- `GET /approval/pending`
+- `POST /approval/callback`
+- `GET /circuit-breaker/status`
+- `POST /circuit-breaker/reset`
+- `GET /incidents/active`
+- `GET /audit/log`
+- `GET /audit/verify`
+
+For convenience:
+- Windows: `scripts/smoke-e2e-local.ps1 -Quiet`
+- Mac/Linux: `bash scripts/smoke-e2e-local.sh quiet`
 
 ---
 

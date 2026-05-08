@@ -149,7 +149,7 @@ alertmanager_silence slack_post_update
 alertmanager_list    postmortem_draft
 ```
 
-kube-sre-gym has 7 (kubectl only). AtlasOps has 20.
+AtlasOps exposes 20 production-relevant SRE tools across Kubernetes, tracing, metrics, GitOps, and comms workflows.
 
 ---
 

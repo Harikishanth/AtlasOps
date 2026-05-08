@@ -33,6 +33,12 @@ $helm    = "C:\Users\NSEIT\AppData\Local\Microsoft\WinGet\Packages\Helm.Helm_Mic
 - Fallback: `BACKEND=fireworks LLM_API_KEY=fw_xxxx` → Fireworks AI API
 - Model: `Qwen/Qwen2.5-7B-Instruct` (agents) + `Qwen/Qwen2.5-72B-Instruct` (judge)
 
+## Comms Integration
+- `SLACK_WEBHOOK_URL` — Slack incoming webhook (optional; always logs locally to `data/slack_posts.jsonl`)
+- `DISCORD_WEBHOOK_URL` — Discord channel webhook (optional; converts Slack payload to Discord embeds)
+- UI polls `/slack/feed` every 5s and renders posts in `# incident-response` panel (bottom of right column)
+- To get a Discord webhook: Server Settings → Integrations → Webhooks → New Webhook → Copy URL
+
 ## Key Files
 - `agents/coordinator.py` — FastAPI app, webhook at `:9099/webhook`, SSE at `/stream`
 - `agents/stream.py` — real-time thought streaming (SSE + 3s poll in dashboard)

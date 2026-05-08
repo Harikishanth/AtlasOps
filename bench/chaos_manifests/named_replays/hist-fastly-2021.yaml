@@ -7,7 +7,7 @@ metadata:
   namespace: chaos-mesh
   labels:
     scenario: hist-fastly-2021
-    tier: named_replay
+    tier: named_replays
 spec:
   action: corrupt
   mode: all

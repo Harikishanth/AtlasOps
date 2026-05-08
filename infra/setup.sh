@@ -35,13 +35,19 @@ gcloud services enable \
 
 echo "[1/8] GCP APIs enabled"
 
-# ── 1. GKE Autopilot cluster ──────────────────────────────────────────────────
+# ── 1. GKE Standard cluster ───────────────────────────────────────────────────
+# IMPORTANT: Must be Standard, NOT Autopilot.
+# Chaos Mesh requires privileged pods, hostPID, and hostPath mounts — all
+# blocked by GKE Autopilot's Warden admission controller.
 if ! gcloud container clusters describe "$CLUSTER" --region="$REGION" --project="$PROJECT" &>/dev/null; then
-  gcloud container clusters create-auto "$CLUSTER" \
+  gcloud container clusters create "$CLUSTER" \
     --region="$REGION" \
     --project="$PROJECT" \
-    --release-channel=stable
-  echo "[2/8] GKE Autopilot cluster created: $CLUSTER"
+    --machine-type=e2-standard-4 \
+    --num-nodes=1 \
+    --release-channel=stable \
+    --workload-pool="${PROJECT}.svc.id.goog"
+  echo "[2/8] GKE Standard cluster created: $CLUSTER (3× e2-standard-4)"
 else
   echo "[2/8] GKE cluster already exists — skipping"
 fi

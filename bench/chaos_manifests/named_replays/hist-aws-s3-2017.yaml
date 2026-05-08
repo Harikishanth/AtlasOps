@@ -8,7 +8,7 @@ metadata:
   namespace: argocd
   labels:
     scenario: hist-aws-s3-2017
-    tier: named_replay
+    tier: named_replays
 spec:
   project: default
   source:

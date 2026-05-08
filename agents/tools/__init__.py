@@ -10,9 +10,21 @@ from agents.tools.argocd import (
     argocd_list_apps, argocd_app_history, argocd_rollback, argocd_app_get,
 )
 from agents.tools.gcloud_logging import gcloud_logs_read
-from agents.tools.cloud_monitoring import cloud_monitoring_query
 from agents.tools.alertmanager import alertmanager_silence, alertmanager_list_alerts
 from agents.tools.comms import slack_post_update, postmortem_draft
+
+# Keep tool imports resilient in local/dev test environments where optional
+# cloud SDK extras may be unavailable. This avoids blocking unrelated tools.
+try:
+    from agents.tools.cloud_monitoring import cloud_monitoring_query
+except Exception as exc:  # pragma: no cover - exercised only when dependency missing
+    _cloud_monitoring_import_error = str(exc)
+
+    def cloud_monitoring_query(*args, **kwargs):  # type: ignore[no-redef]
+        return {
+            "success": False,
+            "error": f"cloud_monitoring_unavailable: {_cloud_monitoring_import_error}",
+        }
 
 
 TOOL_REGISTRY = {

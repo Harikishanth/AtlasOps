@@ -8,7 +8,7 @@ metadata:
   namespace: chaos-mesh
   labels:
     scenario: hist-github-2018
-    tier: named_replay
+    tier: named_replays
 spec:
   action: pod-kill
   mode: all

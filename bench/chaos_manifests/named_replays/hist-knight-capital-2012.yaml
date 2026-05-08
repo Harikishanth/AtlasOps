@@ -9,7 +9,7 @@ metadata:
   labels:
     app: checkoutservice-legacy
     scenario: hist-knight-capital-2012
-    tier: named_replay
+    tier: named_replays
 spec:
   replicas: 2
   selector:
