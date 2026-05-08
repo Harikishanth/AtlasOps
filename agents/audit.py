@@ -106,6 +106,14 @@ class AuditLog:
         return {"ok": True, "entries": len(lines)}
 
 
-_AUDIT_SECRET = os.getenv("ATLASOPS_AUDIT_SECRET", "atlasops-dev-audit-secret")
+_AUDIT_SECRET = os.getenv("ATLASOPS_AUDIT_SECRET", "")
+if not _AUDIT_SECRET:
+    import warnings
+    warnings.warn(
+        "ATLASOPS_AUDIT_SECRET is not set — using insecure dev fallback. "
+        "Set this env var in production to guarantee audit integrity.",
+        stacklevel=1,
+    )
+    _AUDIT_SECRET = "atlasops-dev-audit-secret"
 _AUDIT_PATH = Path(os.getenv("ATLASOPS_AUDIT_LOG", "data/audit_log.jsonl"))
 audit_log = AuditLog(secret_key=_AUDIT_SECRET, log_path=_AUDIT_PATH)

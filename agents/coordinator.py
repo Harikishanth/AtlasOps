@@ -525,7 +525,14 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
         (TRAJECTORIES_DIR / f"{incident_id}.json").write_text(
             json.dumps(full_record, indent=2), encoding="utf-8",
         )
-        resolved = remediation.get("final", {}).get("status") not in {"approval_rejected", "approval_timeout"}
+        # Derive resolved from actual remediation outcome, not just non-rejection.
+        # "skipped_execution" (P0 manual), "approval_rejected", "approval_timeout"
+        # are all non-resolved states. Only explicit "resolved" outcome counts.
+        remediation_final = remediation.get("final", {})
+        resolved = (
+            remediation_final.get("outcome") == "resolved"
+            or remediation_final.get("status") == "resolved"
+        )
         audit_log.record(
             incident_id=incident_id,
             agent_role="coordinator",

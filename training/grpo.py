@@ -151,8 +151,8 @@ class OnlineRewardFunction:
         if not apply_chaos(scenario_id):
             return [0.0] * len(completions)
 
-        # Wait briefly for Alertmanager to fire
-        time.sleep(15)
+        # Wait briefly for Alertmanager to fire — must be async sleep, not blocking
+        await asyncio.sleep(15)
 
         # Run all G completions as parallel agent chains
         tasks = [self._run_one_rollout(c, scenario_id, tier)
@@ -187,15 +187,28 @@ class OnlineRewardFunction:
 
     async def _run_one_rollout(self, completion_text: str,
                                scenario_id: str, tier: str) -> dict:
-        """Execute one agent completion against the real cluster."""
+        """Execute one full incident-response rollout and return a scored episode dict.
+
+        Architecture note: TRL generates G completions per step; we use those
+        completions as the triage agent's initial reasoning seed (injected into
+        the alert context below). The coordinator then continues the full agent
+        chain against the live cluster. Reward is episode-level: resolved/speed/
+        evidence/safety/comms. Group-relative advantages are computed across the
+        G rollouts, giving GRPO its learning signal.
+
+        The completion_text therefore influences the rollout indirectly via the
+        triage seed, creating the completion↔reward coupling GRPO requires.
+        """
         from agents.coordinator import handle_incident
         from agents.judge import judge_trajectory
 
-        # Parse alert from the scenario context
+        # Seed the alert with the model's generated triage reasoning so that
+        # the reward IS conditioned on the specific completion TRL produced.
         alert = {
             "commonLabels": {"alertname": "GRPOTrainingAlert"},
             "scenario_id": scenario_id,
             "alerts": [],
+            "triage_seed": completion_text[:512] if completion_text else "",
         }
 
         t0 = time.time()

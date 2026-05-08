@@ -107,7 +107,16 @@ async def _handle_after_delay(name: str, scenario_id: str, correlation_id: str):
         "scenario_id": scenario_id,
         "correlation_id": correlation_id,
     }
-    await handle_incident(alert)
+    # Route through correlator so UI-injected incidents obey the same
+    # deduplication and dispatch rules as real Alertmanager webhooks.
+    incident_id, _is_new, should_dispatch = correlator.ingest(alert)
+    if not should_dispatch:
+        return
+    correlator.mark_processing(incident_id, True)
+    try:
+        await handle_incident(alert, incident_id=incident_id)
+    finally:
+        correlator.mark_processing(incident_id, False)
 
 
 @app.post("/reset")

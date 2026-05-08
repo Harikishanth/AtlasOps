@@ -47,7 +47,7 @@ if ! gcloud container clusters describe "$CLUSTER" --region="$REGION" --project=
     --num-nodes=1 \
     --release-channel=stable \
     --workload-pool="${PROJECT}.svc.id.goog"
-  echo "[2/8] GKE Standard cluster created: $CLUSTER (3× e2-standard-4)"
+  echo "[2/8] GKE Standard cluster created: $CLUSTER (1× e2-standard-4, autoscaling 1-3)"
 else
   echo "[2/8] GKE cluster already exists — skipping"
 fi
