@@ -144,30 +144,45 @@ class OnlineRewardFunction:
 
     async def _score_batch(self, completions: list[str],
                            prompts: list[str]) -> list[float]:
-        import httpx
-        rewards = []
+        """Score G completions by running SERIALIZED rollouts on the live cluster.
+
+        Why serialized (not asyncio.gather):
+        All G rollouts share one GKE cluster. Running them in parallel causes
+        interference — rollout 1 may delete the chaos while rollout 3 is still
+        diagnosing, making rewards correlated and gradients incorrect.
+        Serializing gives each rollout a clean, independent cluster state:
+          apply_chaos → wait → rollout → reset_chaos → wait → next rollout
+        This is slower (G × episode_time) but produces correct independent rewards.
+        """
+        rewards: list[float] = []
         scenario_id, tier = sample_scenario(self.tiers)
 
-        if not apply_chaos(scenario_id):
-            return [0.0] * len(completions)
+        for i, completion in enumerate(completions):
+            log.info("Rollout %d/%d — scenario %s", i + 1, len(completions), scenario_id)
 
-        # Wait briefly for Alertmanager to fire — must be async sleep, not blocking
-        await asyncio.sleep(15)
+            if not apply_chaos(scenario_id):
+                log.warning("Chaos apply failed for %s — assigning 0 reward", scenario_id)
+                rewards.append(0.0)
+                continue
 
-        # Run all G completions as parallel agent chains
-        tasks = [self._run_one_rollout(c, scenario_id, tier)
-                 for c in completions]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+            # Wait for Alertmanager to fire
+            await asyncio.sleep(15)
 
-        reset_chaos()
+            try:
+                result = await self._run_one_rollout(completion, scenario_id, tier)
+            except Exception as e:
+                log.exception("Rollout %d failed: %s", i + 1, e)
+                result = None
 
-        for result in results:
-            if isinstance(result, Exception):
+            # Always reset before the next rollout — even on failure
+            reset_chaos()
+            await asyncio.sleep(10)   # let the cluster fully stabilise
+
+            if result is None:
                 rewards.append(0.0)
             else:
                 r = compute_reward(result)
                 rewards.append(r)
-                # Feed result back to curriculum for spaced-rep + mastery tracking
                 _curriculum.record(
                     scenario_id=scenario_id,
                     resolved=bool(result.get("resolved", False)),
@@ -176,7 +191,7 @@ class OnlineRewardFunction:
 
         cur_stats = _curriculum.stats()
         log.info(
-            "Scenario %s | rewards: min=%.3f max=%.3f mean=%.3f | "
+            "Batch done | scenario=%s rewards: min=%.3f max=%.3f mean=%.3f | "
             "curriculum: %d tried, %d graduated, %d due for resurface",
             scenario_id,
             min(rewards), max(rewards), sum(rewards) / len(rewards),

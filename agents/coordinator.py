@@ -547,9 +547,26 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
 app = FastAPI(title="AtlasOps Coordinator")
 
 
+_WEBHOOK_SECRET = os.getenv("ALERTMANAGER_WEBHOOK_SECRET", "")
+
+
 @app.post("/webhook")
 async def webhook(request: Request):
-    payload = AlertWebhookPayload.model_validate(await request.json()).model_dump()
+    body = await request.body()
+
+    # Validate Bearer token when secret is configured
+    if _WEBHOOK_SECRET:
+        import hmac as _hmac
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=401, detail="Missing Authorization header")
+        token = auth.removeprefix("Bearer ").strip()
+        if not _hmac.compare_digest(token.encode(), _WEBHOOK_SECRET.encode()):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=401, detail="Invalid webhook secret")
+
+    payload = AlertWebhookPayload.model_validate(json.loads(body)).model_dump()
     log.info("received alertmanager webhook: %d alerts", len(payload.get("alerts", [])))
     incident_id, _is_new, should_dispatch = correlator.ingest(payload)
     if not should_dispatch:

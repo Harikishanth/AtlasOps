@@ -4,17 +4,59 @@ Serves the custom ops console UI at / and wires the coordinator API.
 This is what HF Spaces runs via the Dockerfile.
 """
 
+import hashlib
+import hmac
 import json
+import logging
 import os
 import subprocess
 import time
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request, Security
+from fastapi.security import APIKeyHeader
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+log = logging.getLogger("atlasops")
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+# Set ATLASOPS_API_KEY env var to enable auth on all mutating endpoints.
+# If unset, mutations are allowed without a key (dev / demo mode with a warning).
+_API_KEY = os.getenv("ATLASOPS_API_KEY", "")
+_api_key_header = APIKeyHeader(name="X-AtlasOps-Key", auto_error=False)
+
+# HMAC secret for validating Alertmanager webhook payloads.
+# Set ALERTMANAGER_WEBHOOK_SECRET and configure Alertmanager to send:
+#   Authorization: Bearer <secret>
+_WEBHOOK_SECRET = os.getenv("ALERTMANAGER_WEBHOOK_SECRET", "")
+
+if not _API_KEY:
+    log.warning("ATLASOPS_API_KEY not set — mutating endpoints are unauthenticated (dev mode)")
+if not _WEBHOOK_SECRET:
+    log.warning("ALERTMANAGER_WEBHOOK_SECRET not set — webhook accepts unsigned payloads (dev mode)")
+
+
+def _require_api_key(key: str | None = Security(_api_key_header)) -> None:
+    """Dependency: validates X-AtlasOps-Key header when ATLASOPS_API_KEY is set."""
+    if not _API_KEY:
+        return  # dev mode — no key required
+    if key != _API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-AtlasOps-Key header")
+
+
+def _verify_webhook_signature(body: bytes, authorization: str | None) -> None:
+    """Validate Alertmanager webhook Bearer token when ALERTMANAGER_WEBHOOK_SECRET is set."""
+    if not _WEBHOOK_SECRET:
+        return  # dev mode
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Authorization header on webhook")
+    token = authorization.removeprefix("Bearer ").strip()
+    # Constant-time comparison to prevent timing attacks
+    if not hmac.compare_digest(token.encode(), _WEBHOOK_SECRET.encode()):
+        raise HTTPException(status_code=401, detail="Invalid webhook secret")
 
 # Import coordinator internals
 from agents.coordinator import handle_incident, app as coordinator_app
@@ -68,7 +110,7 @@ async def root():
     return HTMLResponse("<h1>AtlasOps</h1><p>Static files not found.</p>")
 
 
-@app.post("/inject")
+@app.post("/inject", dependencies=[Security(_require_api_key)])
 async def inject_chaos(request: Request):
     """Apply a chaos scenario manifest to the real GKE cluster."""
     body = InjectRequest.model_validate(await request.json())
@@ -119,7 +161,7 @@ async def _handle_after_delay(name: str, scenario_id: str, correlation_id: str):
         correlator.mark_processing(incident_id, False)
 
 
-@app.post("/reset")
+@app.post("/reset", dependencies=[Security(_require_api_key)])
 async def reset_chaos():
     env = os.environ.copy()
     env["USE_GKE_GCLOUD_AUTH_PLUGIN"] = "True"
@@ -172,7 +214,7 @@ async def runtime_config():
     )
 
 
-@app.post("/approval/callback")
+@app.post("/approval/callback", dependencies=[Security(_require_api_key)])
 async def approval_callback(request: Request):
     payload = ApprovalCallbackRequest.model_validate(await request.json())
     result = approval_gate.callback(
@@ -195,7 +237,7 @@ async def circuit_breaker_status():
     return JSONResponse(circuit_breaker.status())
 
 
-@app.post("/circuit-breaker/reset")
+@app.post("/circuit-breaker/reset", dependencies=[Security(_require_api_key)])
 async def circuit_breaker_reset():
     return JSONResponse(circuit_breaker.reset())
 
