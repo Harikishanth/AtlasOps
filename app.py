@@ -329,6 +329,49 @@ async def cluster_health():
         return JSONResponse({"ok": False, "error": str(e), "services": {}})
 
 
+@app.post("/webhook")
+async def webhook_proxy(request: Request):
+    """Top-level Alertmanager webhook — validates signature then forwards to coordinator.
+
+    Alertmanager config:
+      receivers:
+        - name: atlasops
+          webhook_configs:
+            - url: 'http://<host>:7860/webhook'
+              http_config:
+                authorization:
+                  type: Bearer
+                  credentials: <ALERTMANAGER_WEBHOOK_SECRET>
+    """
+    body = await request.body()
+    _verify_webhook_signature(body, request.headers.get("Authorization"))
+    import json as _json
+    from agents.coordinator import app as _coord
+    # Re-dispatch through coordinator's webhook handler directly
+    from agents.coordinator import handle_incident
+    from agents.correlator import correlator
+    try:
+        payload = _json.loads(body)
+    except _json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    incident_id, _is_new, should_dispatch = correlator.ingest(payload)
+    if not should_dispatch:
+        return JSONResponse({"ok": True, "incident_id": incident_id, "dispatched": False})
+    correlator.mark_processing(incident_id, True)
+    import asyncio
+    asyncio.create_task(_dispatch_incident(payload, incident_id))
+    return JSONResponse({"ok": True, "incident_id": incident_id, "dispatched": True})
+
+
+async def _dispatch_incident(payload: dict, incident_id: str) -> None:
+    from agents.coordinator import handle_incident
+    from agents.correlator import correlator
+    try:
+        await handle_incident(payload, incident_id=incident_id)
+    finally:
+        correlator.mark_processing(incident_id, False)
+
+
 @app.get("/slack/feed")
 async def slack_feed():
     """Return last 30 comms posts from the local log (powers the UI feed)."""
