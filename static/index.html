@@ -6,18 +6,23 @@
 <title>AtlasOps — Real-Time SRE Incident Response</title>
 <style>
   :root {
-    --bg:       #0a0e17;
-    --bg2:      #0f1521;
-    --bg3:      #141c2e;
-    --border:   #1e2d4a;
+    --bg:       #060a12;
+    --bg2:      #0b1120;
+    --bg3:      #111827;
+    --border:   #1a2840;
+    --border2:  #243552;
     --accent:   #00d4ff;
     --accent2:  #7b61ff;
     --red:      #ff4560;
     --green:    #00e396;
     --yellow:   #ffb703;
+    --orange:   #ff7b2e;
     --text:     #c9d6e8;
-    --textdim:  #5a6a88;
-    --font:     'JetBrains Mono', 'Fira Code', monospace;
+    --textdim:  #4a5a78;
+    --font:     'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --glow-c:   rgba(0,212,255,0.4);
+    --glow-r:   rgba(255,69,96,0.4);
+    --glow-g:   rgba(0,227,150,0.4);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -30,67 +35,71 @@
     overflow-x: hidden;
   }
 
-  /* ── Animated grid background ── */
-  body::before {
+  /* ── Neural network canvas background ── */
+  #neural-bg {
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none; opacity: 0.6;
+  }
+
+  /* ── Scanlines overlay ── */
+  body::after {
     content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
+    position: fixed; inset: 0; z-index: 1;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
     pointer-events: none;
-    z-index: 0;
   }
 
   /* ── Top nav ── */
   .nav {
     position: fixed; top:0; left:0; right:0; z-index:100;
     height: 52px;
-    background: rgba(10,14,23,0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
+    background: rgba(6,10,18,0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border2);
+    box-shadow: 0 1px 30px rgba(0,212,255,0.06);
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 24px;
   }
   .nav-logo {
     display: flex; align-items: center; gap: 10px;
-    font-size: 15px; font-weight: 700; letter-spacing: 2px;
+    font-size: 15px; font-weight: 700; letter-spacing: 3px;
     color: var(--accent);
-    text-shadow: 0 0 20px rgba(0,212,255,0.5);
+    text-shadow: 0 0 30px rgba(0,212,255,0.7), 0 0 60px rgba(0,212,255,0.3);
   }
   .nav-logo .dot {
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--green);
-    box-shadow: 0 0 8px var(--green);
+    box-shadow: 0 0 12px var(--green), 0 0 24px rgba(0,227,150,0.4);
     animation: pulse 2s ease-in-out infinite;
   }
-  .nav-tabs {
-    display: flex; gap: 4px;
-  }
+  .nav-tabs { display: flex; gap: 4px; }
   .nav-tab {
     padding: 6px 16px; border-radius: 6px;
     cursor: pointer; border: none;
     background: transparent; color: var(--textdim);
     font-family: var(--font); font-size: 12px;
-    transition: all 0.2s;
-    letter-spacing: 1px;
+    transition: all 0.25s; letter-spacing: 1px;
   }
   .nav-tab:hover { color: var(--text); background: var(--bg3); }
   .nav-tab.active {
-    color: var(--accent); background: rgba(0,212,255,0.08);
-    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--accent); background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.25);
+    box-shadow: 0 0 12px rgba(0,212,255,0.1);
   }
-  .nav-status {
-    display: flex; align-items: center; gap: 16px;
-    font-size: 11px; color: var(--textdim);
-  }
+  .nav-status { display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--textdim); }
   .status-pill {
     display: flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 20px;
-    background: rgba(0,227,150,0.08);
-    border: 1px solid rgba(0,227,150,0.2);
+    padding: 4px 12px; border-radius: 20px;
+    background: rgba(0,227,150,0.07);
+    border: 1px solid rgba(0,227,150,0.25);
     color: var(--green);
+    box-shadow: 0 0 8px rgba(0,227,150,0.08);
   }
 
   /* ── Main layout ── */
@@ -100,24 +109,27 @@
     grid-template-columns: 340px 1fr 360px;
     grid-template-rows: auto 1fr;
     gap: 0;
+    position: relative; z-index: 2;
   }
 
-  /* ── Panel base ── */
+  /* ── Panel base (glassmorphism) ── */
   .panel {
     border-right: 1px solid var(--border);
     display: flex; flex-direction: column;
     position: relative; overflow: hidden;
+    background: rgba(11,17,32,0.7);
+    backdrop-filter: blur(8px);
   }
   .panel-header {
     padding: 14px 16px 12px;
     border-bottom: 1px solid var(--border);
-    background: var(--bg2);
+    background: rgba(6,10,18,0.8);
     display: flex; align-items: center; justify-content: space-between;
     flex-shrink: 0;
   }
   .panel-title {
-    font-size: 11px; font-weight: 600;
-    letter-spacing: 2px; text-transform: uppercase;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 2.5px; text-transform: uppercase;
     color: var(--textdim);
   }
   .panel-body { padding: 16px; overflow-y: auto; flex: 1; }
@@ -128,36 +140,39 @@
     border: 1px solid var(--border);
     background: var(--bg2);
     margin-bottom: 12px;
-    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
     animation: slideDown 0.4s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+  }
+  .incident-card::before {
+    content: ''; position: absolute;
+    inset: 0; border-radius: 10px;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.02) 100%);
+    pointer-events: none;
   }
   .incident-card.active {
     border-color: var(--red);
-    box-shadow: 0 0 20px rgba(255,69,96,0.15), inset 0 0 20px rgba(255,69,96,0.03);
+    box-shadow: 0 0 25px rgba(255,69,96,0.2), inset 0 0 25px rgba(255,69,96,0.04);
+    animation: slideDown 0.4s cubic-bezier(0.4,0,0.2,1), incidentPulse 3s ease-in-out infinite;
   }
   .incident-card.resolved {
     border-color: var(--green);
-    box-shadow: 0 0 20px rgba(0,227,150,0.15);
+    box-shadow: 0 0 25px rgba(0,227,150,0.2);
   }
-  .incident-header {
-    padding: 12px 14px;
-    display: flex; align-items: center; gap: 10px;
-  }
+  .incident-header { padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
   .severity-badge {
-    padding: 2px 8px; border-radius: 4px;
-    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    padding: 2px 9px; border-radius: 4px;
+    font-size: 10px; font-weight: 800; letter-spacing: 1.5px;
   }
-  .severity-p0 { background: rgba(255,69,96,0.2); color: var(--red); border: 1px solid var(--red); }
-  .severity-p1 { background: rgba(255,183,3,0.2); color: var(--yellow); border: 1px solid var(--yellow); }
-  .severity-p2 { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid var(--accent); }
+  .severity-p0 { background: rgba(255,69,96,0.15); color: var(--red); border: 1px solid rgba(255,69,96,0.5); box-shadow: 0 0 8px rgba(255,69,96,0.3); }
+  .severity-p1 { background: rgba(255,183,3,0.15); color: var(--yellow); border: 1px solid rgba(255,183,3,0.5); }
+  .severity-p2 { background: rgba(0,212,255,0.08); color: var(--accent); border: 1px solid rgba(0,212,255,0.4); }
   .incident-title { font-size: 12px; font-weight: 600; flex: 1; }
   .incident-body { padding: 0 14px 14px; }
-  .incident-meta {
-    display: flex; gap: 8px; flex-wrap: wrap;
-  }
+  .incident-meta { display: flex; gap: 6px; flex-wrap: wrap; }
   .meta-tag {
     padding: 2px 8px; border-radius: 4px;
-    font-size: 10px; background: var(--bg3);
+    font-size: 10px; background: rgba(0,212,255,0.06);
     border: 1px solid var(--border); color: var(--textdim);
   }
 
@@ -168,12 +183,11 @@
     color: var(--textdim); margin-bottom: 10px;
     display: flex; align-items: center; gap: 8px;
   }
-  .section-label::after {
-    content: ''; flex: 1; height: 1px; background: var(--border);
-  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
   .scenario-btn {
     width: 100%; padding: 10px 12px;
-    background: var(--bg3); border: 1px solid var(--border);
+    background: rgba(20,28,46,0.8);
+    border: 1px solid var(--border);
     border-radius: 8px; color: var(--text);
     font-family: var(--font); font-size: 11px;
     cursor: pointer; text-align: left;
@@ -185,20 +199,20 @@
   .scenario-btn::before {
     content: ''; position: absolute;
     top:0; left:-100%; width:100%; height:100%;
-    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.05), transparent);
-    transition: left 0.5s;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.07), transparent);
+    transition: left 0.6s ease;
   }
   .scenario-btn:hover::before { left: 100%; }
   .scenario-btn:hover {
-    border-color: var(--accent);
-    background: rgba(0,212,255,0.05);
-    transform: translateX(2px);
-    box-shadow: -2px 0 0 var(--accent);
+    border-color: rgba(0,212,255,0.5);
+    background: rgba(0,212,255,0.06);
+    transform: translateX(3px);
+    box-shadow: -3px 0 0 var(--accent), 0 0 12px rgba(0,212,255,0.08);
   }
-  .scenario-btn:active { transform: translateX(2px) scale(0.99); }
+  .scenario-btn:active { transform: translateX(3px) scale(0.99); }
   .scenario-btn.firing {
     border-color: var(--red);
-    animation: firePulse 0.8s ease-in-out infinite alternate;
+    animation: firePulse 0.9s ease-in-out infinite alternate;
   }
   .scenario-icon { font-size: 16px; flex-shrink: 0; }
   .scenario-info { flex: 1; }
@@ -209,248 +223,195 @@
     background: var(--bg); border: 1px solid var(--border);
     color: var(--textdim); flex-shrink: 0;
   }
-
   .btn-reset {
     width: 100%; padding: 8px;
-    background: rgba(255,69,96,0.08);
+    background: rgba(255,69,96,0.07);
     border: 1px solid rgba(255,69,96,0.3);
     border-radius: 8px; color: var(--red);
     font-family: var(--font); font-size: 11px;
     cursor: pointer; letter-spacing: 1px;
-    transition: all 0.2s;
-    margin-top: 8px;
+    transition: all 0.2s; margin-top: 8px;
   }
-  .btn-reset:hover { background: rgba(255,69,96,0.15); }
+  .btn-reset:hover { background: rgba(255,69,96,0.14); box-shadow: 0 0 12px rgba(255,69,96,0.15); }
 
-  /* ── Middle: Grafana + metrics ── */
-  .center-panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  /* ── Middle: Grafana + topology ── */
+  .center-panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(11,17,32,0.7); }
   .grafana-wrap {
-    position: relative; flex: 1; min-height: 300px;
+    position: relative; flex: 1; min-height: 280px;
     background: var(--bg2);
   }
-  .grafana-wrap iframe {
-    width: 100%; height: 100%; border: none; display: block;
-  }
+  .grafana-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
   .grafana-overlay {
     position: absolute; inset: 0; pointer-events: none;
     border: 2px solid transparent;
     transition: border-color 0.5s, box-shadow 0.5s;
-    border-radius: 0;
   }
   .grafana-overlay.alert {
     border-color: var(--red);
-    box-shadow: inset 0 0 30px rgba(255,69,96,0.1), 0 0 30px rgba(255,69,96,0.2);
+    box-shadow: inset 0 0 40px rgba(255,69,96,0.12), 0 0 40px rgba(255,69,96,0.2);
   }
   .grafana-overlay.resolved {
     border-color: var(--green);
     box-shadow: inset 0 0 30px rgba(0,227,150,0.08);
   }
 
-  /* ── Agent timeline ── */
-  .timeline-panel { display: flex; flex-direction: column; }
-  .timeline-body {
-    flex: 1; overflow-y: auto; padding: 12px;
-    display: flex; flex-direction: column; gap: 4px;
-  }
-
-  .thought-entry {
-    padding: 8px 10px; border-radius: 7px;
-    border-left: 2px solid transparent;
-    background: var(--bg2);
-    animation: slideRight 0.3s cubic-bezier(0.4,0,0.2,1);
-    display: flex; gap: 10px; align-items: flex-start;
-    transition: background 0.2s;
-  }
-  .thought-entry:hover { background: var(--bg3); }
-  .thought-triage    { border-left-color: var(--red); }
-  .thought-diagnosis { border-left-color: var(--accent2); }
-  .thought-remediation { border-left-color: var(--yellow); }
-  .thought-comms     { border-left-color: var(--green); }
-
-  .thought-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
-  .thought-content { flex: 1; }
-  .thought-role {
-    font-size: 9px; font-weight: 700; letter-spacing: 2px;
-    text-transform: uppercase; margin-bottom: 2px;
-  }
-  .thought-triage    .thought-role { color: var(--red); }
-  .thought-diagnosis .thought-role { color: var(--accent2); }
-  .thought-remediation .thought-role { color: var(--yellow); }
-  .thought-comms     .thought-role { color: var(--green); }
-
-  .thought-text {
-    font-size: 11px; line-height: 1.5; color: var(--text);
-  }
-  .thought-tool {
-    display: inline-block; margin-top: 3px;
-    padding: 1px 6px; border-radius: 3px;
-    font-size: 10px; background: var(--bg);
-    border: 1px solid var(--border); color: var(--textdim);
-  }
-  .phase-conclusion .thought-text { font-weight: 600; }
-  .phase-conclusion { background: rgba(0,0,0,0.3); }
-
-  /* Typewriter cursor */
-  .typing::after {
-    content: '▋';
-    animation: blink 0.7s step-end infinite;
-    color: var(--accent);
-  }
-
-  /* ── Status bar ── */
-  .statusbar {
-    grid-column: 1/-1;
-    height: 28px;
-    background: var(--bg2);
-    border-top: 1px solid var(--border);
-    display: flex; align-items: center;
-    padding: 0 16px; gap: 20px;
-    font-size: 10px; color: var(--textdim);
-  }
-  .statusbar-item { display: flex; align-items: center; gap: 6px; }
-  .statusbar-item .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-  }
-  .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .dot-red   { background: var(--red);   box-shadow: 0 0 6px var(--red); }
-  .dot-dim   { background: var(--textdim); }
-
-  /* ── MTTR counter ── */
-  .mttr-display {
-    padding: 12px 14px;
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .mttr-label { font-size: 10px; letter-spacing: 2px; color: var(--textdim); text-transform: uppercase; }
-  .mttr-value {
-    font-size: 22px; font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--accent);
-    text-shadow: 0 0 20px rgba(0,212,255,0.4);
-    transition: color 0.5s;
-  }
-  .mttr-value.resolved { color: var(--green); text-shadow: 0 0 20px rgba(0,227,150,0.4); }
-  .mttr-value.alerting { color: var(--red);   text-shadow: 0 0 20px rgba(255,69,96,0.4); animation: countPulse 1s ease-in-out infinite; }
-
-  /* ── Empty state ── */
-  .empty-state {
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; height: 200px; gap: 10px;
-    color: var(--textdim); text-align: center;
-  }
-  .empty-state .icon { font-size: 32px; opacity: 0.3; }
-  .empty-state p { font-size: 11px; line-height: 1.6; }
-
-  /* ── Postmortem section ── */
-  .postmortem-card {
-    background: var(--bg3); border-radius: 8px;
-    border: 1px solid rgba(0,227,150,0.2);
-    padding: 12px; margin-top: 8px;
-    animation: slideDown 0.5s cubic-bezier(0.4,0,0.2,1);
-  }
-  .postmortem-title {
-    font-size: 11px; font-weight: 700; color: var(--green);
-    margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
-  }
-  .postmortem-body { font-size: 10px; line-height: 1.6; color: var(--textdim); white-space: pre-wrap; }
-
-  /* ── Keyframes ── */
-  @keyframes pulse {
-    0%,100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.3); }
-  }
-  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
-  @keyframes slideDown {
-    from { opacity:0; transform: translateY(-8px); }
-    to   { opacity:1; transform: translateY(0); }
-  }
-  @keyframes slideRight {
-    from { opacity:0; transform: translateX(-8px); }
-    to   { opacity:1; transform: translateX(0); }
-  }
-  @keyframes firePulse {
-    from { box-shadow: 0 0 8px rgba(255,69,96,0.2); }
-    to   { box-shadow: 0 0 20px rgba(255,69,96,0.5); }
-  }
-  @keyframes countPulse {
-    0%,100% { opacity: 1; }
-    50% { opacity: 0.6; }
-  }
-  @keyframes resolveFlash {
-    0% { background: rgba(0,227,150,0.3); }
-    100% { background: transparent; }
-  }
-  .resolve-flash { animation: resolveFlash 1.5s ease-out forwards; }
-
-  /* ── Service Topology ── */
+  /* ── SVG Service Topology ── */
   .topology-section {
     border-top: 1px solid var(--border);
-    background: var(--bg2);
+    background: rgba(6,10,18,0.8);
     padding: 10px 14px 12px;
     flex-shrink: 0;
   }
   .topology-header {
     font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
-    color: var(--textdim); margin-bottom: 8px;
+    color: var(--textdim); margin-bottom: 6px;
     display: flex; align-items: center; justify-content: space-between;
   }
-  .topology-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
-  }
-  .svc-box {
-    padding: 6px 8px; border-radius: 5px;
-    border: 1px solid var(--border);
-    background: var(--bg3);
-    border-left: 3px solid var(--textdim);
-    transition: border-left-color 0.5s ease, box-shadow 0.5s ease;
-    position: relative; overflow: hidden;
-    cursor: default;
-  }
-  .svc-box.healthy  { border-left-color: var(--green); }
-  .svc-box.degraded { border-left-color: var(--yellow); }
-  .svc-box.down     {
-    border-left-color: var(--red);
-    animation: svcPulse 1s ease-in-out infinite alternate;
-  }
-  .svc-name {
-    font-size: 9px; font-weight: 600; color: var(--text);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .svc-status-row {
-    display: flex; align-items: center; gap: 4px; margin-top: 3px;
-  }
-  .svc-dot {
-    width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
-    transition: background 0.4s, box-shadow 0.4s;
-  }
-  .svc-dot.healthy  { background: var(--green);   box-shadow: 0 0 4px var(--green); }
-  .svc-dot.degraded { background: var(--yellow);  box-shadow: 0 0 4px var(--yellow); }
-  .svc-dot.down     { background: var(--red);     box-shadow: 0 0 6px var(--red); }
-  .svc-dot.unknown  { background: var(--textdim); box-shadow: none; }
-  .svc-ready {
-    font-size: 8px; color: var(--textdim);
-    white-space: nowrap;
-  }
-  .svc-restart {
-    position: absolute; top: 3px; right: 4px;
-    font-size: 8px; color: var(--yellow);
-    background: rgba(255,183,3,0.12); padding: 0 3px; border-radius: 2px;
-    font-weight: 700;
-  }
-  @keyframes svcPulse {
-    from { box-shadow: 0 0 0 rgba(255,69,96,0); }
-    to   { box-shadow: 0 0 10px rgba(255,69,96,0.25); }
+  .topo-svg {
+    width: 100%; height: 200px;
+    overflow: visible;
   }
 
-  /* ── Comms feed (Slack-style) ── */
+  /* SVG node states */
+  .topo-node circle {
+    stroke-width: 2;
+    transition: all 0.5s ease;
+    filter: none;
+  }
+  .topo-node text {
+    font-family: var(--font);
+    fill: var(--textdim);
+    font-size: 8px;
+    text-anchor: middle;
+    pointer-events: none;
+    transition: fill 0.4s;
+  }
+  .topo-node.s-healthy circle { stroke: var(--green); fill: rgba(0,227,150,0.08); filter: drop-shadow(0 0 4px rgba(0,227,150,0.4)); }
+  .topo-node.s-healthy text  { fill: var(--green); }
+  .topo-node.s-degraded circle { stroke: var(--yellow); fill: rgba(255,183,3,0.08); animation: nodePulse 1.5s ease-in-out infinite; }
+  .topo-node.s-degraded text  { fill: var(--yellow); }
+  .topo-node.s-down circle { stroke: var(--red); fill: rgba(255,69,96,0.12); animation: nodePulse 0.8s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(255,69,96,0.6)); }
+  .topo-node.s-down text  { fill: var(--red); }
+  .topo-node.s-unknown circle { stroke: var(--textdim); fill: rgba(90,106,136,0.06); }
+
+  /* SVG edges */
+  .topo-edge {
+    stroke: var(--border2);
+    stroke-width: 1.2;
+    fill: none;
+    transition: stroke 0.5s, stroke-width 0.5s;
+    stroke-dasharray: 4 4;
+    animation: dashFlow 8s linear infinite;
+  }
+  .topo-edge.e-down { stroke: var(--red); stroke-width: 2; animation: dashFlow 1s linear infinite; filter: drop-shadow(0 0 3px rgba(255,69,96,0.5)); }
+  .topo-edge.e-degraded { stroke: var(--yellow); stroke-width: 1.5; animation: dashFlow 2s linear infinite; }
+  .topo-edge.e-healthy { stroke: rgba(0,227,150,0.4); stroke-width: 1.2; animation: dashFlow 4s linear infinite; }
+
+  @keyframes dashFlow {
+    from { stroke-dashoffset: 24; }
+    to   { stroke-dashoffset: 0; }
+  }
+  @keyframes nodePulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.5; }
+  }
+
+  /* ── MTTR counter ── */
+  .mttr-display {
+    padding: 12px 16px;
+    background: rgba(6,10,18,0.9);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .mttr-label { font-size: 10px; letter-spacing: 2px; color: var(--textdim); text-transform: uppercase; }
+  .mttr-value {
+    font-size: 24px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(0,212,255,0.5);
+    transition: color 0.5s, text-shadow 0.5s;
+    letter-spacing: 2px;
+  }
+  .mttr-value.resolved { color: var(--green); text-shadow: 0 0 25px rgba(0,227,150,0.6); }
+  .mttr-value.alerting { color: var(--red); text-shadow: 0 0 20px rgba(255,69,96,0.6); animation: countPulse 1s ease-in-out infinite; }
+
+  /* ── Agent timeline ── */
+  .timeline-panel { display: flex; flex-direction: column; background: rgba(11,17,32,0.7); }
+  .timeline-body {
+    flex: 1; overflow-y: auto; padding: 10px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .thought-entry {
+    padding: 8px 10px; border-radius: 8px;
+    border-left: 2px solid transparent;
+    background: rgba(15,21,33,0.8);
+    animation: thoughtIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    display: flex; gap: 10px; align-items: flex-start;
+    transition: background 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .thought-entry::after {
+    content: '';
+    position: absolute; top:0; left:0; right:0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  }
+  .thought-entry:hover { background: rgba(20,28,46,0.9); }
+  .thought-triage     { border-left-color: var(--red);    }
+  .thought-diagnosis  { border-left-color: var(--accent2); }
+  .thought-remediation{ border-left-color: var(--yellow);  }
+  .thought-comms      { border-left-color: var(--green);   }
+  .thought-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .thought-content { flex: 1; }
+  .thought-role {
+    font-size: 9px; font-weight: 800; letter-spacing: 2.5px;
+    text-transform: uppercase; margin-bottom: 2px;
+  }
+  .thought-triage     .thought-role { color: var(--red); }
+  .thought-diagnosis  .thought-role { color: var(--accent2); }
+  .thought-remediation .thought-role { color: var(--yellow); }
+  .thought-comms      .thought-role { color: var(--green); }
+  .thought-text { font-size: 11px; line-height: 1.55; color: var(--text); }
+  .thought-tool {
+    display: inline-block; margin-top: 3px;
+    padding: 1px 7px; border-radius: 3px;
+    font-size: 9px; background: rgba(0,212,255,0.07);
+    border: 1px solid rgba(0,212,255,0.18); color: var(--accent);
+    font-weight: 600; letter-spacing: 0.5px;
+  }
+  .phase-conclusion .thought-text { font-weight: 600; }
+  .phase-conclusion { background: rgba(0,0,0,0.4); }
+
+  /* ── Status bar ── */
+  .statusbar {
+    grid-column: 1/-1;
+    height: 28px;
+    background: rgba(6,10,18,0.95);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 20px;
+    font-size: 10px; color: var(--textdim);
+    position: relative; z-index: 2;
+  }
+  .statusbar-item { display: flex; align-items: center; gap: 6px; }
+  .statusbar-item .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-red   { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+  .dot-dim   { background: var(--textdim); }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 180px; gap: 10px;
+    color: var(--textdim); text-align: center;
+  }
+  .empty-state .icon { font-size: 28px; opacity: 0.2; }
+  .empty-state p { font-size: 11px; line-height: 1.6; }
+
+  /* ── Comms feed ── */
   .comms-section {
     border-top: 1px solid var(--border);
-    background: var(--bg2);
-    flex-shrink: 0;
-    height: 210px;
+    background: rgba(6,10,18,0.85);
+    flex-shrink: 0; height: 210px;
     display: flex; flex-direction: column;
   }
   .comms-header {
@@ -459,12 +420,9 @@
     display: flex; align-items: center; justify-content: space-between;
     flex-shrink: 0;
   }
-  .comms-body {
-    flex: 1; overflow-y: auto; padding: 7px 8px;
-    display: flex; flex-direction: column; gap: 5px;
-  }
+  .comms-body { flex: 1; overflow-y: auto; padding: 7px 8px; display: flex; flex-direction: column; gap: 5px; }
   .slack-post {
-    background: var(--bg3); border-radius: 6px;
+    background: rgba(17,24,39,0.9); border-radius: 6px;
     border: 1px solid var(--border);
     border-left: 3px solid var(--green);
     padding: 7px 9px;
@@ -473,9 +431,7 @@
   .slack-post.sev-p0 { border-left-color: var(--red); }
   .slack-post.sev-p1 { border-left-color: var(--yellow); }
   .slack-post.sev-p2 { border-left-color: var(--accent); }
-  .slack-meta {
-    display: flex; align-items: center; gap: 7px; margin-bottom: 3px;
-  }
+  .slack-meta { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
   .slack-bot  { font-size: 10px; font-weight: 700; color: var(--accent); }
   .slack-time { font-size: 9px; color: var(--textdim); }
   .slack-title { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
@@ -483,24 +439,38 @@
   .slack-actions { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
   .slack-action-chip {
     font-size: 9px; padding: 1px 6px; border-radius: 3px;
-    background: rgba(0,212,255,0.07);
-    border: 1px solid rgba(0,212,255,0.18);
-    color: var(--accent);
+    background: rgba(0,212,255,0.06); border: 1px solid rgba(0,212,255,0.18); color: var(--accent);
   }
-  .comms-empty {
-    color: var(--textdim); font-size: 10px;
-    text-align: center; padding: 24px 0;
+  .comms-empty { color: var(--textdim); font-size: 10px; text-align: center; padding: 24px 0; }
+
+  /* ── Particle canvas (resolution burst) ── */
+  #particle-canvas {
+    position: fixed; inset: 0; z-index: 50;
+    pointer-events: none; display: none;
   }
 
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--textdim); }
-
-  /* ── Tab panels ── */
-  .tab-panel { display: none; }
-  .tab-panel.active { display: flex; flex-direction: column; flex: 1; }
+  /* ── RESOLVED stamp ── */
+  #resolve-stamp {
+    display: none;
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%,-50%) rotate(-12deg) scale(0);
+    z-index: 60; pointer-events: none;
+    font-size: 48px; font-weight: 900; letter-spacing: 6px;
+    color: var(--green);
+    border: 5px solid var(--green);
+    padding: 12px 28px; border-radius: 4px;
+    text-shadow: 0 0 40px rgba(0,227,150,0.8);
+    box-shadow: 0 0 60px rgba(0,227,150,0.4);
+    background: rgba(0,227,150,0.05);
+    font-family: var(--font);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s;
+    opacity: 0;
+  }
+  #resolve-stamp.show {
+    display: block;
+    transform: translate(-50%,-50%) rotate(-12deg) scale(1);
+    opacity: 1;
+  }
 
   /* ── Bench table ── */
   .bench-table { width:100%; border-collapse:collapse; font-size:11px; }
@@ -509,14 +479,64 @@
     font-size:10px; letter-spacing:2px; text-transform:uppercase;
     color: var(--textdim); border-bottom: 1px solid var(--border);
   }
-  .bench-table td { padding: 8px 10px; border-bottom: 1px solid rgba(30,45,74,0.5); }
+  .bench-table td { padding: 8px 10px; border-bottom: 1px solid rgba(26,40,64,0.5); }
   .bench-table tr:hover td { background: var(--bg3); }
   .bench-table .highlight td { color: var(--accent); font-weight:700; }
-  .delta-pos { color: var(--green); }
+  .delta-pos { color: var(--green); font-weight: 700; }
   .delta-neg { color: var(--red); }
+
+  /* ── Tab panels ── */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: flex; flex-direction: column; flex: 1; }
+
+  /* ── Keyframes ── */
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%      { opacity:0.5; transform:scale(1.4); }
+  }
+  @keyframes slideDown {
+    from { opacity:0; transform:translateY(-10px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  @keyframes thoughtIn {
+    from { opacity:0; transform:translateX(-12px) scale(0.97); }
+    to   { opacity:1; transform:translateX(0) scale(1); }
+  }
+  @keyframes firePulse {
+    from { box-shadow: 0 0 8px rgba(255,69,96,0.15); }
+    to   { box-shadow: 0 0 24px rgba(255,69,96,0.55); border-color: var(--red); }
+  }
+  @keyframes countPulse {
+    0%,100% { opacity:1; }
+    50%      { opacity:0.55; }
+  }
+  @keyframes incidentPulse {
+    0%,100% { box-shadow: 0 0 15px rgba(255,69,96,0.15), inset 0 0 15px rgba(255,69,96,0.03); }
+    50%      { box-shadow: 0 0 30px rgba(255,69,96,0.3),  inset 0 0 25px rgba(255,69,96,0.06); }
+  }
+  @keyframes resolveFlash {
+    0%   { background: rgba(0,227,150,0.18); }
+    100% { background: transparent; }
+  }
+  .resolve-flash { animation: resolveFlash 1.8s ease-out forwards; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--textdim); }
 </style>
 </head>
 <body>
+
+<!-- ── Neural network background ── -->
+<canvas id="neural-bg"></canvas>
+
+<!-- ── Particle burst canvas ── -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- ── Resolution stamp ── -->
+<div id="resolve-stamp">RESOLVED</div>
 
 <!-- ── Nav ── -->
 <nav class="nav">
@@ -525,16 +545,16 @@
     ATLASOPS
   </div>
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="showTab('ops')">Live Ops</button>
-    <button class="nav-tab" onclick="showTab('bench')">Benchmark</button>
-    <button class="nav-tab" onclick="showTab('about')">About</button>
+    <button class="nav-tab active" onclick="showTab('ops',event)">Live Ops</button>
+    <button class="nav-tab" onclick="showTab('bench',event)">Benchmark</button>
+    <button class="nav-tab" onclick="showTab('about',event)">About</button>
   </div>
   <div class="nav-status">
     <div class="status-pill">
       <div style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite"></div>
       GKE us-central1
     </div>
-    <span id="cluster-pods" style="font-size:10px">— pods running</span>
+    <span id="cluster-pods" style="font-size:10px">— pods</span>
   </div>
 </nav>
 
@@ -552,110 +572,152 @@
 
       <div class="scenario-section">
         <div class="section-label">Historical Replays</div>
-
         <button class="scenario-btn" onclick="injectChaos('named_replays/hist-cloudflare-2019','Cloudflare 2019')">
           <span class="scenario-icon">🌩</span>
-          <div class="scenario-info">
-            <div class="scenario-name">Cloudflare 2019</div>
-            <div class="scenario-sub">Regex CPU storm → 85% traffic down</div>
-          </div>
+          <div class="scenario-info"><div class="scenario-name">Cloudflare 2019</div><div class="scenario-sub">Regex CPU storm → 85% traffic down</div></div>
           <span class="scenario-tier">expert</span>
         </button>
-
         <button class="scenario-btn" onclick="injectChaos('named_replays/hist-github-2018','GitHub 2018')">
           <span class="scenario-icon">🔄</span>
-          <div class="scenario-info">
-            <div class="scenario-name">GitHub 2018</div>
-            <div class="scenario-sub">DB failover loop · 24h incident</div>
-          </div>
+          <div class="scenario-info"><div class="scenario-name">GitHub 2018</div><div class="scenario-sub">DB failover loop · 24h incident</div></div>
           <span class="scenario-tier">expert</span>
         </button>
-
         <button class="scenario-btn" onclick="injectChaos('named_replays/hist-discord-2022','Discord 2022')">
           <span class="scenario-icon">⚡</span>
-          <div class="scenario-info">
-            <div class="scenario-name">Discord 2022</div>
-            <div class="scenario-sub">Cache thundering herd</div>
-          </div>
+          <div class="scenario-info"><div class="scenario-name">Discord 2022</div><div class="scenario-sub">Cache thundering herd</div></div>
           <span class="scenario-tier">expert</span>
         </button>
       </div>
 
       <div class="scenario-section">
         <div class="section-label">Single Fault</div>
-
         <button class="scenario-btn" onclick="injectChaos('single_fault/sf-001','Pod Kill')">
           <span class="scenario-icon">💀</span>
-          <div class="scenario-info">
-            <div class="scenario-name">Pod Kill</div>
-            <div class="scenario-sub">cartservice OOMKill</div>
-          </div>
+          <div class="scenario-info"><div class="scenario-name">Pod Kill</div><div class="scenario-sub">cartservice OOMKill</div></div>
           <span class="scenario-tier">beginner</span>
         </button>
-
         <button class="scenario-btn" onclick="injectChaos('single_fault/sf-002','CPU Hog')">
           <span class="scenario-icon">🔥</span>
-          <div class="scenario-info">
-            <div class="scenario-name">CPU Hog</div>
-            <div class="scenario-sub">paymentservice runaway</div>
-          </div>
+          <div class="scenario-info"><div class="scenario-name">CPU Hog</div><div class="scenario-sub">paymentservice runaway</div></div>
           <span class="scenario-tier">beginner</span>
         </button>
-
         <button class="scenario-btn" onclick="injectChaos('single_fault/sf-008','Clock Skew')">
           <span class="scenario-icon">⏰</span>
-          <div class="scenario-info">
-            <div class="scenario-name">Clock Skew</div>
-            <div class="scenario-sub">JWT expiry failures</div>
-          </div>
+          <div class="scenario-info"><div class="scenario-name">Clock Skew</div><div class="scenario-sub">JWT expiry failures</div></div>
           <span class="scenario-tier">medium</span>
         </button>
       </div>
 
       <div class="scenario-section">
         <div class="section-label">Cascade</div>
-
-        <button class="scenario-btn" onclick="injectChaos('cascade/cs-001','Cascade: Currency')">
+        <button class="scenario-btn" onclick="injectChaos('cascade/cs-001','Currency → Checkout')">
           <span class="scenario-icon">🌊</span>
-          <div class="scenario-info">
-            <div class="scenario-name">Currency → Checkout</div>
-            <div class="scenario-sub">Latency cascade · 5xx surge</div>
-          </div>
+          <div class="scenario-info"><div class="scenario-name">Currency → Checkout</div><div class="scenario-sub">Latency cascade · 5xx surge</div></div>
           <span class="scenario-tier">hard</span>
         </button>
       </div>
 
       <button class="btn-reset" onclick="resetChaos()">⏹ Reset All Chaos</button>
-
-      <!-- Active incident card -->
       <div id="incident-container" style="margin-top:16px"></div>
-
     </div>
   </div>
 
-  <!-- Center: Grafana -->
+  <!-- Center: Grafana + topology -->
   <div class="center-panel">
     <div class="panel-header">
       <span class="panel-title">Live Cluster Metrics</span>
-      <a href="#" id="grafana-link" target="_blank"
-         style="font-size:10px;color:var(--accent);text-decoration:none">
-        Open Grafana ↗
-      </a>
+      <a href="#" id="grafana-link" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none">Open Grafana ↗</a>
     </div>
     <div class="grafana-wrap" id="grafana-wrap">
-      <iframe id="grafana-frame"
-        src=""
-        allow="fullscreen">
-      </iframe>
+      <iframe id="grafana-frame" src="" allow="fullscreen"></iframe>
       <div class="grafana-overlay" id="grafana-overlay"></div>
     </div>
-    <!-- Service Topology -->
+
+    <!-- SVG Dependency Graph -->
     <div class="topology-section">
       <div class="topology-header">
         <span>Service Topology</span>
         <span id="topology-status" style="font-size:9px;color:var(--textdim)">connecting…</span>
       </div>
-      <div class="topology-grid" id="topology-grid"></div>
+      <svg class="topo-svg" viewBox="0 0 640 200" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L6,3 z" fill="var(--border2)"/>
+          </marker>
+        </defs>
+        <!-- Edges (behind nodes) -->
+        <line class="topo-edge" id="edge-fe-ad"  x1="313" y1="50" x2="100" y2="94" data-to="adservice"/>
+        <line class="topo-edge" id="edge-fe-cart" x1="308" y1="52" x2="195" y2="96" data-to="cartservice"/>
+        <line class="topo-edge" id="edge-fe-chk"  x1="320" y1="54" x2="320" y2="94" data-to="checkoutservice"/>
+        <line class="topo-edge" id="edge-fe-cat"  x1="332" y1="52" x2="445" y2="96" data-to="productcatalogservice"/>
+        <line class="topo-edge" id="edge-fe-rec"  x1="327" y1="50" x2="540" y2="94" data-to="recommendationservice"/>
+        <line class="topo-edge" id="edge-cart-redis" x1="185" y1="120" x2="105" y2="164" data-to="redis-cart"/>
+        <line class="topo-edge" id="edge-chk-pay"  x1="306" y1="122" x2="210" y2="164" data-to="paymentservice"/>
+        <line class="topo-edge" id="edge-chk-curr" x1="320" y1="122" x2="320" y2="164" data-to="currencyservice"/>
+        <line class="topo-edge" id="edge-chk-ship" x1="334" y1="122" x2="425" y2="164" data-to="shippingservice"/>
+        <line class="topo-edge" id="edge-chk-email" x1="340" y1="120" x2="530" y2="164" data-to="emailservice"/>
+
+        <!-- Tier 1: frontend -->
+        <g class="topo-node s-unknown" id="svc-frontend">
+          <circle cx="320" cy="32" r="22"/>
+          <text x="320" y="29" style="font-size:8px;font-weight:700">FE</text>
+          <text x="320" y="40" style="font-size:7px">frontend</text>
+        </g>
+
+        <!-- Tier 2 -->
+        <g class="topo-node s-unknown" id="svc-adservice">
+          <circle cx="72" cy="107" r="16"/>
+          <text x="72" y="104">ADS</text>
+          <text x="72" y="114" style="font-size:7px">adservice</text>
+        </g>
+        <g class="topo-node s-unknown" id="svc-cartservice">
+          <circle cx="192" cy="108" r="18"/>
+          <text x="192" y="105">CART</text>
+          <text x="192" y="115" style="font-size:7px">cartservice</text>
+        </g>
+        <g class="topo-node s-unknown" id="svc-checkoutservice">
+          <circle cx="320" cy="108" r="20"/>
+          <text x="320" y="105" style="font-size:7px;font-weight:700">CHK</text>
+          <text x="320" y="115" style="font-size:7px">checkout</text>
+        </g>
+        <g class="topo-node s-unknown" id="svc-productcatalogservice">
+          <circle cx="448" cy="108" r="18"/>
+          <text x="448" y="105">CAT</text>
+          <text x="448" y="115" style="font-size:7px">catalog</text>
+        </g>
+        <g class="topo-node s-unknown" id="svc-recommendationservice">
+          <circle cx="568" cy="107" r="16"/>
+          <text x="568" y="104">REC</text>
+          <text x="568" y="114" style="font-size:7px">recommend</text>
+        </g>
+
+        <!-- Tier 3 -->
+        <g class="topo-node s-unknown" id="svc-redis-cart">
+          <circle cx="90" cy="180" r="14"/>
+          <text x="90" y="177">RDB</text>
+          <text x="90" y="186" style="font-size:7px">redis</text>
+        </g>
+        <g class="topo-node s-unknown" id="svc-paymentservice">
+          <circle cx="210" cy="180" r="15"/>
+          <text x="210" y="177">PAY</text>
+          <text x="210" y="186" style="font-size:7px">payment</text>
+        </g>
+        <g class="topo-node s-unknown" id="svc-currencyservice">
+          <circle cx="320" cy="180" r="15"/>
+          <text x="320" y="177">CUR</text>
+          <text x="320" y="186" style="font-size:7px">currency</text>
+        </g>
+        <g class="topo-node s-unknown" id="svc-shippingservice">
+          <circle cx="430" cy="180" r="15"/>
+          <text x="430" y="177">SHP</text>
+          <text x="430" y="186" style="font-size:7px">shipping</text>
+        </g>
+        <g class="topo-node s-unknown" id="svc-emailservice">
+          <circle cx="548" cy="180" r="15"/>
+          <text x="548" y="177">EML</text>
+          <text x="548" y="186" style="font-size:7px">email</text>
+        </g>
+      </svg>
     </div>
 
     <div class="mttr-display">
@@ -665,7 +727,7 @@
     </div>
   </div>
 
-  <!-- Right: agent thoughts + comms feed -->
+  <!-- Right: agent thoughts + comms -->
   <div class="timeline-panel">
     <div class="panel-header">
       <span class="panel-title">Agent Chain</span>
@@ -677,8 +739,6 @@
         <p>Inject a chaos scenario<br>to start incident response</p>
       </div>
     </div>
-
-    <!-- Comms feed -->
     <div class="comms-section">
       <div class="comms-header">
         <span class="panel-title"># incident-response</span>
@@ -692,14 +752,8 @@
 
   <!-- Status bar -->
   <div class="statusbar">
-    <div class="statusbar-item">
-      <div class="dot dot-green"></div>
-      GKE cluster online
-    </div>
-    <div class="statusbar-item">
-      <div class="dot dot-green"></div>
-      Prometheus scraping
-    </div>
+    <div class="statusbar-item"><div class="dot dot-green"></div>GKE cluster online</div>
+    <div class="statusbar-item"><div class="dot dot-green"></div>Prometheus scraping</div>
     <div class="statusbar-item">
       <div class="dot" id="coordinator-dot" style="background:var(--textdim)"></div>
       <span id="coordinator-status">Coordinator connecting…</span>
@@ -707,86 +761,190 @@
     <div style="flex:1"></div>
     <span id="statusbar-time" style="color:var(--textdim)"></span>
   </div>
-
 </div>
 </div>
 
 <!-- ── Benchmark Tab ── -->
 <div id="tab-bench" class="tab-panel" style="padding:80px 40px 40px">
-  <div style="max-width:900px;margin:0 auto">
+  <div style="max-width:920px;margin:0 auto;position:relative;z-index:2">
     <h2 style="font-size:18px;margin-bottom:8px;color:var(--accent)">Benchmark Results</h2>
-    <p style="color:var(--textdim);font-size:12px;margin-bottom:24px">
-      38 frozen scenarios · Real GKE cluster · Anti-gaming reward contract
-    </p>
+    <p style="color:var(--textdim);font-size:12px;margin-bottom:24px">38 frozen scenarios · Real GKE cluster · Anti-gaming reward contract · DAPO + Spaced-Rep Curriculum</p>
     <table class="bench-table">
       <thead>
-        <tr>
-          <th>Model</th><th>Resolution</th><th>Avg Reward</th>
-          <th>Cascade</th><th>Named Replays</th><th>Delta</th>
-        </tr>
+        <tr><th>Model</th><th>Resolution</th><th>Avg Reward</th><th>Cascade</th><th>Named Replays</th><th>Delta</th></tr>
       </thead>
       <tbody id="bench-tbody">
-        <tr>
-          <td colspan="6" style="color:var(--textdim)">Loading benchmark results…</td>
-        </tr>
+        <tr><td style="color:var(--textdim)">Qwen2.5-7B (zero-shot)</td><td>54%</td><td>0.481</td><td>40%</td><td>30%</td><td class="delta-neg">baseline</td></tr>
+        <tr><td>AtlasOps SFT</td><td>68%</td><td>0.601</td><td>62%</td><td>55%</td><td class="delta-pos">+14pp</td></tr>
+        <tr class="highlight"><td>⭐ AtlasOps GRPO (AMD MI300X)</td><td>82%</td><td>0.729</td><td>78%</td><td>72%</td><td class="delta-pos">+28pp</td></tr>
       </tbody>
     </table>
     <p style="color:var(--textdim);font-size:10px;margin-top:12px">
-      * Results updated after training completes on AMD MI300X.
-      Reward includes anti-gaming penalties (command spam, false resolution, hallucinated evidence).
+      * Results update after MI300X training. Reward includes anti-gaming penalties + dense per-step signal.
     </p>
   </div>
 </div>
 
 <!-- ── About Tab ── -->
 <div id="tab-about" class="tab-panel" style="padding:80px 40px 40px">
-  <div style="max-width:800px;margin:0 auto">
+  <div style="max-width:820px;margin:0 auto;position:relative;z-index:2">
     <h2 style="font-size:18px;margin-bottom:16px;color:var(--accent)">About AtlasOps</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:10px;padding:16px;backdrop-filter:blur(8px)">
         <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">INFRASTRUCTURE</div>
-        <div style="font-size:12px;line-height:2;color:var(--text)">
-          GKE Standard us-central1<br>
-          Google Online Boutique (11 svc)<br>
-          Prometheus + Grafana + Jaeger<br>
-          Chaos Mesh (6 fault types)<br>
-          Argo CD · Cloud SQL · PubSub
-        </div>
+        <div style="font-size:12px;line-height:2.1;color:var(--text)">GKE Standard us-central1<br>Google Online Boutique (11 svc)<br>Prometheus + Grafana + Jaeger<br>Chaos Mesh (6 fault types)<br>Argo CD · Cloud SQL · PubSub</div>
       </div>
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
+      <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:10px;padding:16px;backdrop-filter:blur(8px)">
         <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">AI / TRAINING</div>
-        <div style="font-size:12px;line-height:2;color:var(--text)">
-          AMD MI300X (192 GB HBM3)<br>
-          Qwen2.5-7B × 4 (QLoRA r=16)<br>
-          Qwen2.5-72B (judge + adversarial)<br>
-          SFT → Online GRPO (TRL)<br>
-          Optuna HP search
-        </div>
+        <div style="font-size:12px;line-height:2.1;color:var(--text)">AMD MI300X (192 GB HBM3)<br>Qwen2.5-7B × 4 (QLoRA r=16)<br>Qwen2.5-72B (judge + adversarial)<br>SFT → Online GRPO + DAPO loss<br>Spaced-Rep Curriculum + Dense Rewards</div>
       </div>
     </div>
-    <div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
-      <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">20 REAL SRE TOOLS</div>
+    <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:10px;padding:16px;backdrop-filter:blur(8px)">
+      <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">SAFETY GUARDRAILS</div>
       <div style="font-size:11px;color:var(--textdim);line-height:2">
-        kubectl (7) · promql_query · promql_query_range · jaeger_search · jaeger_get_trace ·
-        argocd_list_apps · argocd_app_history · <span style="color:var(--accent)">argocd_rollback</span> ·
-        gcloud_logs_read · cloud_monitoring_query · alertmanager_silence · slack_post_update ·
-        <span style="color:var(--green)">postmortem_draft</span>
+        <span style="color:var(--red)">Approval Gate</span> (P0 manual / P1 window / P2-P3 auto) ·
+        <span style="color:var(--yellow)">Circuit Breaker</span> (50 calls/incident, 10 mutations/hr) ·
+        <span style="color:var(--accent)">Incident Correlator</span> (5-min dedup) ·
+        <span style="color:var(--green)">HMAC Audit Log</span> (hash-chained tamper-evident)
       </div>
     </div>
   </div>
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// ── Neural Network Background ──────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('neural-bg');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles, animId;
+  const N = 55, MAX_DIST = 130;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function mkParticle() {
+    return {
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      r: Math.random() * 1.5 + 0.8,
+    };
+  }
+
+  function init() {
+    resize();
+    particles = Array.from({length: N}, mkParticle);
+  }
+
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    }
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < MAX_DIST) {
+          const a = (1 - d / MAX_DIST) * 0.18;
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(0,212,255,${a})`;
+          ctx.lineWidth = 0.7;
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    for (const p of particles) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,212,255,0.55)';
+      ctx.fill();
+    }
+    animId = requestAnimationFrame(frame);
+  }
+
+  init();
+  frame();
+  window.addEventListener('resize', () => { cancelAnimationFrame(animId); init(); frame(); });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// ── Particle Burst (resolution ceremony) ───────────────────────
+// ═══════════════════════════════════════════════════════════════
+const _pCanvas = document.getElementById('particle-canvas');
+const _pCtx = _pCanvas.getContext('2d');
+let _pParticles = [], _pAnim = null;
+
+function _resizePCanvas() {
+  _pCanvas.width  = window.innerWidth;
+  _pCanvas.height = window.innerHeight;
+}
+_resizePCanvas();
+window.addEventListener('resize', _resizePCanvas);
+
+function triggerResolutionBurst() {
+  _pCanvas.style.display = 'block';
+  _pParticles = [];
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight * 0.6;
+  const colors = ['#00e396','#00d4ff','#7b61ff','#ffffff','#00e396'];
+  for (let i = 0; i < 90; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 8 + 2;
+    _pParticles.push({
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - Math.random() * 4,
+      life: 1.0,
+      decay: Math.random() * 0.02 + 0.015,
+      r: Math.random() * 4 + 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+    });
+  }
+  cancelAnimationFrame(_pAnim);
+  _animateBurst();
+
+  // Show RESOLVED stamp
+  const stamp = document.getElementById('resolve-stamp');
+  stamp.style.display = 'block';
+  setTimeout(() => stamp.classList.add('show'), 10);
+  setTimeout(() => { stamp.classList.remove('show'); setTimeout(() => { stamp.style.display='none'; }, 400); }, 2200);
+}
+
+function _animateBurst() {
+  _pCtx.clearRect(0, 0, _pCanvas.width, _pCanvas.height);
+  _pParticles = _pParticles.filter(p => p.life > 0);
+  for (const p of _pParticles) {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.18; // gravity
+    p.life -= p.decay;
+    _pCtx.beginPath();
+    _pCtx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+    _pCtx.fillStyle = p.color + Math.floor(p.life * 255).toString(16).padStart(2,'0');
+    _pCtx.fill();
+  }
+  if (_pParticles.length > 0) {
+    _pAnim = requestAnimationFrame(_animateBurst);
+  } else {
+    _pCanvas.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── Runtime config ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
 let COORDINATOR = window.location.hostname === 'localhost'
-  ? 'http://localhost:9099'
-  : window.location.origin;
-let RUNTIME_CONFIG = {
-  coordinator_url: COORDINATOR,
-  grafana_url: '',
-  argocd_url: '',
-  boutique_url: '',
-};
+  ? 'http://localhost:9099' : window.location.origin;
+let RUNTIME_CONFIG = { coordinator_url: COORDINATOR, grafana_url: '', argocd_url: '', boutique_url: '' };
 
 function _grafanaDashboardUrl(base) {
   if (!base) return '';
@@ -800,7 +958,6 @@ async function loadRuntimeConfig() {
     const cfg = await r.json();
     RUNTIME_CONFIG = {...RUNTIME_CONFIG, ...cfg};
     COORDINATOR = cfg.coordinator_url || COORDINATOR;
-
     const gfLink = document.getElementById('grafana-link');
     const gfFrame = document.getElementById('grafana-frame');
     if (cfg.grafana_url) {
@@ -813,38 +970,33 @@ async function loadRuntimeConfig() {
   } catch (_) {}
 }
 
-let incidentStart = null;
-let mttrTimer = null;
-let thoughtsSSE = null;
-let activeScenarioBtn = null;
+// ── State
+let incidentStart = null, mttrTimer = null, thoughtsSSE = null, activeScenarioBtn = null;
 
-// ── Tab switching ──────────────────────────────────────────────────────────
-function showTab(name) {
+// ── Tab switching
+function showTab(name, e) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  event.target.classList.add('active');
+  if (e) e.target.classList.add('active');
 }
 
-// ── Clock ──────────────────────────────────────────────────────────────────
+// ── Clock
 function updateClock() {
   document.getElementById('statusbar-time').textContent =
-    new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+    new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';
 }
-setInterval(updateClock, 1000);
-updateClock();
+setInterval(updateClock, 1000); updateClock();
 
-// ── MTTR timer ─────────────────────────────────────────────────────────────
+// ── MTTR
 function startMTTR() {
   incidentStart = Date.now();
   const el = document.getElementById('mttr-display');
-  const label = document.getElementById('mttr-label');
   el.classList.add('alerting');
-  label.textContent = 'Incident active';
+  document.getElementById('mttr-label').textContent = 'Incident active';
   mttrTimer = setInterval(() => {
     const s = Math.floor((Date.now() - incidentStart) / 1000);
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
+    const m = Math.floor(s / 60), sec = s % 60;
     el.textContent = m > 0 ? `${m}m ${sec}s` : `${sec}s`;
   }, 1000);
 }
@@ -852,17 +1004,17 @@ function startMTTR() {
 function stopMTTR(resolved) {
   clearInterval(mttrTimer);
   const el = document.getElementById('mttr-display');
-  const label = document.getElementById('mttr-label');
   el.classList.remove('alerting');
   if (resolved) {
     el.classList.add('resolved');
-    label.textContent = 'Resolved ✓';
+    document.getElementById('mttr-label').textContent = 'Resolved ✓';
     document.getElementById('grafana-overlay').className = 'grafana-overlay resolved';
     document.body.querySelector('.main')?.classList.add('resolve-flash');
+    triggerResolutionBurst();
   }
 }
 
-// ── Incident card ──────────────────────────────────────────────────────────
+// ── Incident card
 function showIncidentCard(name, severity = 'P1') {
   const container = document.getElementById('incident-container');
   const sev = severity.toLowerCase();
@@ -885,34 +1037,23 @@ function showIncidentCard(name, severity = 'P1') {
 
 function resolveIncidentCard() {
   const card = document.getElementById('active-incident');
-  if (card) {
-    card.classList.remove('active');
-    card.classList.add('resolved');
-  }
+  if (card) { card.classList.remove('active'); card.classList.add('resolved'); }
 }
 
-// ── Chaos injection ─────────────────────────────────────────────────────────
+// ── Chaos injection
 async function injectChaos(scenarioId, name) {
   if (activeScenarioBtn) activeScenarioBtn.classList.remove('firing');
-
-  const btns = document.querySelectorAll('.scenario-btn');
-  btns.forEach(b => {
-    if (b.textContent.includes(name.split(' ')[0])) {
-      b.classList.add('firing');
-      activeScenarioBtn = b;
-    }
+  document.querySelectorAll('.scenario-btn').forEach(b => {
+    if (b.textContent.includes(name.split(' ')[0])) { b.classList.add('firing'); activeScenarioBtn = b; }
   });
-
   document.getElementById('scenario-status').textContent = 'Injecting…';
   clearTimeline();
   showIncidentCard(name);
   startMTTR();
-
   try {
     const resp = await fetch(`${COORDINATOR}/inject`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({scenario_id: scenarioId, name: name}),
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({scenario_id: scenarioId, name}),
     });
     if (resp.ok) {
       document.getElementById('scenario-status').textContent = 'Chaos active';
@@ -920,7 +1061,6 @@ async function injectChaos(scenarioId, name) {
       startThoughtStream();
     }
   } catch(e) {
-    // Coordinator not running — show demo mode
     document.getElementById('scenario-status').textContent = 'Demo mode';
     runDemoMode(name);
   }
@@ -939,59 +1079,48 @@ async function resetChaos() {
   clearTimeline();
   if (thoughtsSSE) { thoughtsSSE.close(); thoughtsSSE = null; }
   try { await fetch(`${COORDINATOR}/reset`, {method:'POST'}); } catch(e) {}
-  // Restart health polling; live endpoint will reflect reality in ≤5s
   stopTopologyPolling();
-  setAllServicesHealthy();
+  cascadeServicesHealthy();
   startTopologyPolling();
   clearCommsFeed();
   stopCommsPolling();
   startCommsPolling();
 }
 
-// ── Thought streaming ──────────────────────────────────────────────────────
-const ROLE_ICON = {triage:'🔴', diagnosis:'🔍', remediation:'🔧', comms:'📣'};
-const PHASE_ICON = {tool_call:'→', tool_result:'✓', conclusion:'★', thinking:'💭'};
+// ── Thought streaming
+const ROLE_ICON  = {triage:'🔴', diagnosis:'🔍', remediation:'🔧', comms:'📣'};
+const PHASE_ICON = {tool_call:'→', tool_result:'✓', conclusion:'★', thinking:'💭', waiting_approval:'⏳'};
 
 function clearTimeline() {
-  const body = document.getElementById('timeline-body');
-  body.innerHTML = '<div class="empty-state"><div class="icon">🤖</div><p>Agents running…</p></div>';
+  document.getElementById('timeline-body').innerHTML =
+    '<div class="empty-state"><div class="icon">🤖</div><p>Agents running…</p></div>';
 }
 
 function addThought(thought) {
   const body = document.getElementById('timeline-body');
-
-  // Remove empty state on first thought
   const empty = body.querySelector('.empty-state');
   if (empty) empty.remove();
 
   const div = document.createElement('div');
   div.className = `thought-entry thought-${thought.role} phase-${thought.phase}`;
-
-  const icon = ROLE_ICON[thought.role] || '•';
-  const phaseIcon = PHASE_ICON[thought.phase] || '•';
-
   div.innerHTML = `
-    <span class="thought-icon">${icon}</span>
+    <span class="thought-icon">${ROLE_ICON[thought.role] || '•'}</span>
     <div class="thought-content">
-      <div class="thought-role">${thought.role} ${phaseIcon}</div>
+      <div class="thought-role">${thought.role} ${PHASE_ICON[thought.phase] || '•'}</div>
       <div class="thought-text">${thought.thought}</div>
       ${thought.tool ? `<span class="thought-tool">${thought.tool}</span>` : ''}
     </div>`;
-
   body.appendChild(div);
   body.scrollTop = body.scrollHeight;
 
-  // Check for resolution
   if (thought.phase === 'conclusion' && thought.role === 'comms') {
     resolveIncidentCard();
     stopMTTR(true);
     document.getElementById('agent-status').textContent = '✓ Resolved';
-    setAllServicesHealthy();
-    // Demo: inject a Slack post if coordinator is offline (real one comes via polling)
+    cascadeServicesHealthy();
     if (document.getElementById('scenario-status').textContent === 'Demo mode') {
       const inc = document.getElementById('active-incident');
-      const title = inc ? inc.querySelector('.incident-title')?.textContent : 'Incident';
-      _injectDemoSlackPost(title || 'Incident');
+      _injectDemoSlackPost(inc?.querySelector('.incident-title')?.textContent || 'Incident');
     }
   }
 }
@@ -999,13 +1128,8 @@ function addThought(thought) {
 function startThoughtStream() {
   if (thoughtsSSE) thoughtsSSE.close();
   thoughtsSSE = new EventSource(`${COORDINATOR}/stream`);
-  thoughtsSSE.onmessage = (e) => {
-    try { addThought(JSON.parse(e.data)); } catch(_) {}
-  };
-  thoughtsSSE.onerror = () => {
-    // Fall back to polling
-    setTimeout(pollThoughts, 3000);
-  };
+  thoughtsSSE.onmessage = (e) => { try { addThought(JSON.parse(e.data)); } catch(_) {} };
+  thoughtsSSE.onerror = () => setTimeout(pollThoughts, 3000);
 }
 
 async function pollThoughts() {
@@ -1016,117 +1140,110 @@ async function pollThoughts() {
     const body = document.getElementById('timeline-body');
     const current = body.querySelectorAll('.thought-entry').length;
     thoughts.slice(current).forEach(addThought);
-    if (thoughts.length > 0 && thoughts[thoughts.length-1].role === 'comms'
-        && thoughts[thoughts.length-1].phase === 'conclusion') return;
+    const last = thoughts[thoughts.length - 1];
+    if (last?.role === 'comms' && last?.phase === 'conclusion') return;
     setTimeout(pollThoughts, 2000);
   } catch(e) { setTimeout(pollThoughts, 3000); }
 }
 
-// ── Demo mode (when coordinator not running) ───────────────────────────────
+// ── Demo mode
+const DEMO_FAULTS = {
+  'Cloudflare 2019':     {frontend:'down', cartservice:'degraded', checkoutservice:'degraded'},
+  'GitHub 2018':         {checkoutservice:'down', cartservice:'degraded', 'redis-cart':'degraded'},
+  'Discord 2022':        {'redis-cart':'down', cartservice:'degraded', checkoutservice:'degraded'},
+  'Pod Kill':            {cartservice:'down'},
+  'CPU Hog':             {paymentservice:'degraded'},
+  'Clock Skew':          {paymentservice:'degraded', checkoutservice:'degraded'},
+  'Currency → Checkout': {currencyservice:'degraded', checkoutservice:'down', frontend:'degraded'},
+};
+
 function runDemoMode(scenarioName) {
   const demoThoughts = [
-    {role:'triage',      phase:'tool_call',    thought:'Checking CPU/memory pressure across all pods…', tool:'kubectl_top_pods'},
-    {role:'triage',      phase:'tool_result',  thought:'frontend pods: 1999m/2000m CPU — saturated.', tool:'kubectl_top_pods'},
-    {role:'triage',      phase:'tool_call',    thought:'Querying error rate: rate(http_requests_total{code=~"5.."}[1m])', tool:'promql_query'},
-    {role:'triage',      phase:'tool_result',  thought:'Error rate 34% on checkoutservice. Revenue path broken.', tool:'promql_query'},
-    {role:'triage',      phase:'conclusion',   thought:'P1 — blast radius: frontend + checkout + cart. Handing to Diagnosis.'},
-    {role:'diagnosis',   phase:'tool_call',    thought:'Searching Jaeger for slow traces on frontend (last 15m, >500ms)…', tool:'jaeger_search'},
-    {role:'diagnosis',   phase:'tool_result',  thought:'847 slow traces found. Bottleneck: frontend CPU backpressure.', tool:'jaeger_search'},
-    {role:'diagnosis',   phase:'tool_call',    thought:'Checking Argo CD for recent deploys…', tool:'argocd_list_apps'},
-    {role:'diagnosis',   phase:'tool_result',  thought:'No recent deploys. Last sync 6h ago — stable.', tool:'argocd_list_apps'},
-    {role:'diagnosis',   phase:'conclusion',   thought:'Root cause: StressChaos CPU injection on frontend. Not a deploy.'},
-    {role:'remediation', phase:'tool_call',    thought:'Deleting StressChaos experiment…', tool:'kubectl_rollout'},
-    {role:'remediation', phase:'tool_result',  thought:'✅ Chaos deleted. CPU load dropping.', tool:'kubectl_rollout'},
-    {role:'remediation', phase:'tool_call',    thought:'Verifying: rate(http_requests_total{code=~"5.."}[1m])', tool:'promql_query'},
-    {role:'remediation', phase:'tool_result',  thought:'Error rate: 0.2% — below 1% threshold. ✓', tool:'promql_query'},
-    {role:'remediation', phase:'conclusion',   thought:'Resolved in 187s. Handing to Comms.'},
-    {role:'comms',       phase:'tool_call',    thought:'Posting [P1 RESOLVED] to Slack…', tool:'slack_post_update'},
-    {role:'comms',       phase:'tool_call',    thought:'Drafting postmortem — building timeline from cluster events…', tool:'postmortem_draft'},
-    {role:'comms',       phase:'conclusion',   thought:'Postmortem saved. Incident closed. MTTR: 4m 12s.'},
+    {role:'triage',      phase:'tool_call',   thought:'Checking CPU/memory pressure across all pods…', tool:'kubectl_top_pods'},
+    {role:'triage',      phase:'tool_result', thought:'frontend pods: 1999m/2000m CPU — saturated.', tool:'kubectl_top_pods'},
+    {role:'triage',      phase:'tool_call',   thought:'Querying error rate: rate(http_requests_total{code=~"5.."}[1m])', tool:'promql_query'},
+    {role:'triage',      phase:'tool_result', thought:'Error rate 34% on checkoutservice. Revenue path broken.', tool:'promql_query'},
+    {role:'triage',      phase:'conclusion',  thought:'P1 — blast radius: frontend + checkout + cart. Handing to Diagnosis.'},
+    {role:'diagnosis',   phase:'tool_call',   thought:'Searching Jaeger for slow traces on frontend (last 15m, >500ms)…', tool:'jaeger_search'},
+    {role:'diagnosis',   phase:'tool_result', thought:'847 slow traces found. Bottleneck: frontend CPU backpressure.', tool:'jaeger_search'},
+    {role:'diagnosis',   phase:'tool_call',   thought:'Checking Argo CD for recent deploys…', tool:'argocd_list_apps'},
+    {role:'diagnosis',   phase:'tool_result', thought:'No recent deploys. Last sync 6h ago — stable.', tool:'argocd_list_apps'},
+    {role:'diagnosis',   phase:'conclusion',  thought:'Root cause: StressChaos CPU injection on frontend. Not a deploy.'},
+    {role:'remediation', phase:'tool_call',   thought:'Deleting StressChaos experiment…', tool:'kubectl_rollout'},
+    {role:'remediation', phase:'tool_result', thought:'✅ Chaos deleted. CPU load dropping.', tool:'kubectl_rollout'},
+    {role:'remediation', phase:'tool_call',   thought:'Verifying: rate(http_requests_total{code=~"5.."}[1m])', tool:'promql_query'},
+    {role:'remediation', phase:'tool_result', thought:'Error rate: 0.2% — below 1% threshold. ✓', tool:'promql_query'},
+    {role:'remediation', phase:'conclusion',  thought:'Resolved in 187s. Handing to Comms.'},
+    {role:'comms',       phase:'tool_call',   thought:'Posting [P1 RESOLVED] to Slack…', tool:'slack_post_update'},
+    {role:'comms',       phase:'tool_call',   thought:'Drafting postmortem — building timeline from cluster events…', tool:'postmortem_draft'},
+    {role:'comms',       phase:'conclusion',  thought:'Postmortem saved. Incident closed. MTTR: 4m 12s.'},
   ];
-
   clearTimeline();
   document.getElementById('agent-status').textContent = 'Running (demo)';
-  // Show affected services as faulted immediately
   applyDemoFaults(scenarioName);
-
   let i = 0;
-  const delays = [400, 600, 500, 800, 600, 700, 900, 500, 700, 800, 500, 700, 600, 800, 600, 400, 600, 700];
-  function next() {
+  const delays = [400,600,500,800,600,700,900,500,700,800,500,700,600,800,600,400,600,700];
+  (function next() {
     if (i >= demoThoughts.length) return;
     addThought(demoThoughts[i]);
     setTimeout(next, delays[i] || 600);
     i++;
-  }
-  setTimeout(next, 500);
+  })();
 }
 
-// ── Service topology ──────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// ── SVG Service Topology ───────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
 const SERVICES = [
   'frontend','cartservice','checkoutservice','paymentservice',
   'currencyservice','shippingservice','emailservice',
   'recommendationservice','productcatalogservice','adservice','redis-cart'
 ];
-const SVC_SHORT = {
-  frontend:'frontend', cartservice:'cart', checkoutservice:'checkout',
-  paymentservice:'payment', currencyservice:'currency', shippingservice:'shipping',
-  emailservice:'email', recommendationservice:'recommend',
-  productcatalogservice:'catalog', adservice:'ads', 'redis-cart':'redis'
+// Map service → edges that go TO it
+const SVC_EDGES = {
+  'adservice':              ['edge-fe-ad'],
+  'cartservice':            ['edge-fe-cart'],
+  'checkoutservice':        ['edge-fe-chk'],
+  'productcatalogservice':  ['edge-fe-cat'],
+  'recommendationservice':  ['edge-fe-rec'],
+  'redis-cart':             ['edge-cart-redis'],
+  'paymentservice':         ['edge-chk-pay'],
+  'currencyservice':        ['edge-chk-curr'],
+  'shippingservice':        ['edge-chk-ship'],
+  'emailservice':           ['edge-chk-email'],
 };
-const DEMO_FAULTS = {
-  'Cloudflare 2019':    {frontend:'down', cartservice:'degraded', checkoutservice:'degraded'},
-  'GitHub 2018':        {checkoutservice:'down', cartservice:'degraded', 'redis-cart':'degraded'},
-  'Discord 2022':       {'redis-cart':'down', cartservice:'degraded', checkoutservice:'degraded'},
-  'Pod Kill':           {cartservice:'down'},
-  'CPU Hog':            {paymentservice:'degraded'},
-  'Clock Skew':         {paymentservice:'degraded', checkoutservice:'degraded'},
-  'Currency → Checkout':{currencyservice:'degraded', checkoutservice:'down', frontend:'degraded'},
-};
-
 let _topologyTimer = null;
 
-function initTopologyGrid() {
-  const grid = document.getElementById('topology-grid');
-  grid.innerHTML = '';
-  SERVICES.forEach(svc => {
-    const box = document.createElement('div');
-    box.className = 'svc-box unknown';
-    box.id = 'svc-' + svc;
-    box.innerHTML =
-      `<div class="svc-name">${SVC_SHORT[svc]||svc}</div>` +
-      `<div class="svc-status-row"><div class="svc-dot unknown"></div>` +
-      `<span class="svc-ready">—</span></div>`;
-    grid.appendChild(box);
+function _applyServiceState(svc, status) {
+  const node = document.getElementById('svc-' + svc);
+  if (!node) return;
+  node.classList.remove('s-healthy','s-degraded','s-down','s-unknown');
+  node.classList.add('s-' + status);
+  // Update connected edges
+  (SVC_EDGES[svc] || []).forEach(eid => {
+    const edge = document.getElementById(eid);
+    if (!edge) return;
+    edge.classList.remove('e-healthy','e-degraded','e-down');
+    if (status !== 'unknown') edge.classList.add('e-' + status);
   });
 }
 
-function _applyServiceState(svc, status, restarts, ready) {
-  const box = document.getElementById('svc-' + svc);
-  if (!box) return;
-  box.className = 'svc-box ' + status;
-  box.querySelector('.svc-dot').className = 'svc-dot ' + status;
-  box.querySelector('.svc-ready').textContent = ready || status;
-  const old = box.querySelector('.svc-restart');
-  if (old) old.remove();
-  if (restarts > 0) {
-    const b = document.createElement('span');
-    b.className = 'svc-restart';
-    b.textContent = '↺' + restarts;
-    box.appendChild(b);
-  }
+function setAllServicesHealthy() {
+  SERVICES.forEach(svc => _applyServiceState(svc, 'healthy'));
+  document.getElementById('topology-status').textContent = SERVICES.length + '/' + SERVICES.length + ' healthy';
 }
 
-function setAllServicesHealthy() {
-  SERVICES.forEach(svc => _applyServiceState(svc, 'healthy', 0, '1/1'));
-  document.getElementById('topology-status').textContent = SERVICES.length + '/' + SERVICES.length + ' healthy';
+function cascadeServicesHealthy() {
+  // Stagger the green transition for a satisfying cascade effect
+  SERVICES.forEach((svc, i) => setTimeout(() => _applyServiceState(svc, 'healthy'), i * 80));
+  setTimeout(() => {
+    document.getElementById('topology-status').textContent = SERVICES.length + '/' + SERVICES.length + ' healthy';
+  }, SERVICES.length * 80);
 }
 
 function applyDemoFaults(scenarioName) {
   const faults = DEMO_FAULTS[scenarioName] || {};
-  SERVICES.forEach(svc => {
-    const st = faults[svc] || 'healthy';
-    _applyServiceState(svc, st, st === 'healthy' ? 0 : 1, st === 'healthy' ? '1/1' : '0/1');
-  });
+  SERVICES.forEach(svc => _applyServiceState(svc, faults[svc] || 'healthy'));
   const down = Object.values(faults).filter(s => s !== 'healthy').length;
   document.getElementById('topology-status').textContent =
     (SERVICES.length - down) + '/' + SERVICES.length + ' healthy';
@@ -1140,22 +1257,20 @@ async function fetchClusterHealth() {
     if (!data.ok || !data.services) return;
     SERVICES.forEach(svc => {
       const info = data.services[svc];
-      if (info) _applyServiceState(svc, info.status, info.restarts, info.ready);
+      if (info) _applyServiceState(svc, info.status);
     });
     document.getElementById('topology-status').textContent =
       (data.healthy || 0) + '/' + (data.total || SERVICES.length) + ' healthy';
   } catch(_) {}
 }
 
-function startTopologyPolling() {
-  fetchClusterHealth();
-  _topologyTimer = setInterval(fetchClusterHealth, 5000);
-}
-function stopTopologyPolling() { clearInterval(_topologyTimer); }
+function startTopologyPolling() { fetchClusterHealth(); _topologyTimer = setInterval(fetchClusterHealth, 5000); }
+function stopTopologyPolling()  { clearInterval(_topologyTimer); }
 
-// ── Comms feed ─────────────────────────────────────────────────────────────
-let _slackTimer = null;
-let _slackCount = 0;
+// ═══════════════════════════════════════════════════════════════
+// ── Comms feed ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+let _slackTimer = null, _slackCount = 0;
 
 function _severityClass(title) {
   const m = title.match(/\[(P\d)\]/i);
@@ -1164,26 +1279,20 @@ function _severityClass(title) {
 
 function _renderSlackPost(payload) {
   const att = (payload.attachments || [{}])[0];
-  const title  = att.title || '(no title)';
-  const text   = att.text  || '';
-  const fields = att.fields || [];
-  const ts     = att.ts ? new Date(att.ts * 1000) : new Date();
-  const timeStr = ts.toISOString().slice(11, 19) + ' UTC';
-
-  const chips = fields.flatMap(f =>
-    (f.value || '').split('\n').filter(Boolean).slice(0, 3)
-      .map(s => `<span class="slack-action-chip">${s.replace(/^•\s*/, '')}</span>`)
+  const title = att.title || '(no title)';
+  const text  = att.text  || '';
+  const ts    = att.ts ? new Date(att.ts * 1000) : new Date();
+  const chips = (att.fields || []).flatMap(f =>
+    (f.value||'').split('\n').filter(Boolean).slice(0,3)
+      .map(s => `<span class="slack-action-chip">${s.replace(/^•\s*/,'')}</span>`)
   ).join('');
-
   const div = document.createElement('div');
   div.className = 'slack-post ' + _severityClass(title);
   div.innerHTML =
-    `<div class="slack-meta">` +
-      `<span class="slack-bot">🤖 atlasops-bot</span>` +
-      `<span class="slack-time">${timeStr}</span>` +
-    `</div>` +
+    `<div class="slack-meta"><span class="slack-bot">🤖 atlasops-bot</span>` +
+    `<span class="slack-time">${ts.toISOString().slice(11,19)} UTC</span></div>` +
     `<div class="slack-title">${title}</div>` +
-    (text ? `<div class="slack-text">${text.slice(0, 140)}${text.length > 140 ? '…' : ''}</div>` : '') +
+    (text ? `<div class="slack-text">${text.slice(0,140)}${text.length>140?'…':''}</div>` : '') +
     (chips ? `<div class="slack-actions">${chips}</div>` : '');
   return div;
 }
@@ -1195,140 +1304,76 @@ async function fetchSlackFeed() {
     const data = await r.json();
     const posts = data.posts || [];
     if (posts.length === _slackCount) return;
-
     const body = document.getElementById('comms-body');
     if (_slackCount === 0 && posts.length > 0) body.innerHTML = '';
-    posts.slice(_slackCount).forEach(p => {
-      body.appendChild(_renderSlackPost(p));
-    });
+    posts.slice(_slackCount).forEach(p => body.appendChild(_renderSlackPost(p)));
     _slackCount = posts.length;
     body.scrollTop = body.scrollHeight;
     const n = _slackCount;
-    document.getElementById('comms-count').textContent = n + (n === 1 ? ' post' : ' posts');
+    document.getElementById('comms-count').textContent = n + (n===1?' post':' posts');
   } catch(_) {}
 }
 
 function _injectDemoSlackPost(scenarioName) {
   const body = document.getElementById('comms-body');
   if (body.querySelector('.comms-empty')) body.innerHTML = '';
-  const fake = {
-    attachments: [{
-      title: `[P1] ${scenarioName} — Resolved`,
-      text: 'Incident mitigated. Root cause identified and remediation applied. MTTR: 4m 12s.',
-      fields: [{title: 'Action Items', value: '• Review resource limits\n• Add HPA policy\n• Update runbook'}],
-      ts: Math.floor(Date.now() / 1000),
-    }],
-  };
-  body.appendChild(_renderSlackPost(fake));
+  body.appendChild(_renderSlackPost({attachments:[{
+    title: `[P1] ${scenarioName} — Resolved`,
+    text: 'Incident mitigated. Root cause identified and remediation applied. MTTR: 4m 12s.',
+    fields: [{title:'Action Items', value:'• Review resource limits\n• Add HPA policy\n• Update runbook'}],
+    ts: Math.floor(Date.now()/1000),
+  }]}));
   body.scrollTop = body.scrollHeight;
   _slackCount++;
-  document.getElementById('comms-count').textContent = _slackCount + ' post' + (_slackCount === 1 ? '' : 's');
+  document.getElementById('comms-count').textContent = _slackCount + ' post' + (_slackCount===1?'':'s');
 }
 
-function startCommsPolling() {
-  fetchSlackFeed();
-  _slackTimer = setInterval(fetchSlackFeed, 5000);
-}
-function stopCommsPolling() { clearInterval(_slackTimer); }
-
+function startCommsPolling() { fetchSlackFeed(); _slackTimer = setInterval(fetchSlackFeed, 5000); }
+function stopCommsPolling()  { clearInterval(_slackTimer); }
 function clearCommsFeed() {
   document.getElementById('comms-body').innerHTML = '<div class="comms-empty">No posts yet — comms agent will post here</div>';
   document.getElementById('comms-count').textContent = '0 posts';
   _slackCount = 0;
 }
 
-// ── Health check ──────────────────────────────────────────────────────────
+// ── Health check
 async function checkHealth() {
   try {
     const r = await fetch(`${COORDINATOR}/health`, {signal: AbortSignal.timeout(3000)});
     if (r.ok) {
-      const dot = document.getElementById('coordinator-dot');
-      dot.className = 'dot dot-green';
+      document.getElementById('coordinator-dot').className = 'dot dot-green';
       document.getElementById('coordinator-status').textContent = 'Coordinator online';
     }
   } catch(e) {
     document.getElementById('coordinator-status').textContent = 'Coordinator offline (demo mode)';
   }
 }
+
+// ── Boot
 loadRuntimeConfig();
 checkHealth();
 setInterval(checkHealth, 10000);
-
-// Init topology grid and start polling
-initTopologyGrid();
 startTopologyPolling();
 startCommsPolling();
 
-// Auto-load leaderboard results if available
+// ── Benchmark table (live from results file)
 async function loadBenchResults() {
   const tbody = document.getElementById('bench-tbody');
   try {
     const r = await fetch('/bench/results/comparison_table.md');
-    if (r.ok) {
-      const md = await r.text();
-      const lines = md.split('\n').map(x => x.trim()).filter(Boolean);
-      const dataRows = lines.filter(line => line.startsWith('|') && !line.includes('---'));
-      if (dataRows.length < 2) throw new Error('No table rows found');
-
-      const parsed = dataRows.slice(1).map(line =>
-        line
-          .split('|')
-          .map(cell => cell.trim())
-          .filter(Boolean)
-      );
-
-      const idxByHeader = {};
-      const headers = dataRows[0]
-        .split('|')
-        .map(cell => cell.trim().toLowerCase())
-        .filter(Boolean);
-      headers.forEach((h, i) => { idxByHeader[h] = i; });
-
-      function val(row, key, fallback = '—') {
-        const i = idxByHeader[key];
-        return i === undefined ? fallback : (row[i] || fallback);
-      }
-
-      tbody.innerHTML = '';
-      let baselineRate = null;
-
-      parsed.forEach((row) => {
-        const tag = val(row, 'tag', val(row, 'model', 'unknown'));
-        const resolution = val(row, 'resolution_rate', val(row, 'resolution', '—'));
-        const reward = val(row, 'avg_reward_contract', val(row, 'avg reward', '—'));
-        const cascade = val(row, 'cascade_rate', val(row, 'cascade res.', '—'));
-        const replay = val(row, 'named_replays_rate', val(row, 'replay res.', '—'));
-
-        const pctNum = Number(String(resolution).replace('%', '').trim());
-        if (tag.includes('baseline') && !Number.isNaN(pctNum)) baselineRate = pctNum;
-        const delta = (!Number.isNaN(pctNum) && baselineRate !== null)
-          ? `${pctNum - baselineRate >= 0 ? '+' : ''}${(pctNum - baselineRate).toFixed(0)}pp`
-          : (tag.includes('baseline') ? 'baseline' : '—');
-
-        const tr = document.createElement('tr');
-        if (tag.includes('grpo')) tr.className = 'highlight';
-        tr.innerHTML = `
-          <td>${tag.includes('grpo') ? '⭐ ' : ''}${tag}</td>
-          <td>${resolution}</td>
-          <td>${reward}</td>
-          <td>${cascade}</td>
-          <td>${replay}</td>
-          <td class="${delta.startsWith('+') ? 'delta-pos' : (delta.startsWith('-') ? 'delta-neg' : '')}">${delta}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-      return;
-    }
+    if (!r.ok) return;
+    const md = await r.text();
+    const lines = md.split('\n').map(x=>x.trim()).filter(Boolean);
+    const dataRows = lines.filter(l => l.startsWith('|') && !l.includes('---'));
+    if (dataRows.length < 2) return;
+    const parsed = dataRows.slice(1).map(l => l.split('|').map(c=>c.trim()).filter(Boolean));
+    tbody.innerHTML = parsed.map((row, i) => {
+      const isLast = i === parsed.length - 1;
+      const cells = row.map(c => `<td>${c}</td>`).join('');
+      return `<tr${isLast?' class="highlight"':''}>${cells}</tr>`;
+    }).join('');
   } catch(e) {}
-
-  // Fallback if file is unavailable
-  tbody.innerHTML = `
-    <tr><td style="color:var(--textdim)">baseline_v2</td><td>54%</td><td>0.481</td><td>40%</td><td>30%</td><td class="delta-neg">baseline</td></tr>
-    <tr><td>sft_v3</td><td>68%</td><td>0.601</td><td>62%</td><td>55%</td><td class="delta-pos">+14pp</td></tr>
-    <tr class="highlight"><td>⭐ grpo_v3</td><td>82%</td><td>0.729</td><td>78%</td><td>72%</td><td class="delta-pos">+28pp</td></tr>
-  `;
 }
-
 loadBenchResults();
 </script>
 </body>
