@@ -20,16 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pytest pytest-asyncio pyyaml requests jinja2 pydantic
-
-      - name: Run chaos manifest validation tests
-        run: pytest tests/test_chaos_manifests.py -v
-
-      - name: Run tool unit tests (mocked)
-        run: pytest tests/test_tools.py tests/test_coordinator.py -v
-
-      - name: Run app endpoint smoke tests (mocked)
-        run: pytest tests/test_app_endpoints.py tests/test_bench_runner.py -v
+          pip install pytest pytest-asyncio pyyaml requests jinja2 pydantic fastapi httpx aiofiles
 
       - name: Check all Python files compile
         run: |
@@ -38,7 +29,24 @@ jobs:
           python -m py_compile agents/stream.py
           python -m py_compile agents/judge.py
           python -m py_compile agents/adversarial_designer.py
+          python -m py_compile agents/approval.py
+          python -m py_compile agents/circuit_breaker.py
+          python -m py_compile agents/correlator.py
+          python -m py_compile agents/audit.py
+          python -m py_compile config/runtime.py
           python -m py_compile bench/runner.py
-          python -m py_compile dashboard.py
+          python -m py_compile scripts/release_gate.py
           python -m py_compile inference.py
           echo "All files compile OK"
+
+      - name: Run chaos manifest validation tests
+        run: pytest tests/test_chaos_manifests.py -v
+
+      - name: Run safety guardrail unit tests
+        run: pytest tests/test_approval.py tests/test_circuit_breaker.py tests/test_correlator.py tests/test_audit.py -v
+
+      - name: Run tool + coordinator unit tests (mocked)
+        run: pytest tests/test_tools.py tests/test_coordinator.py -v
+
+      - name: Run app endpoint smoke tests (mocked)
+        run: pytest tests/test_app_endpoints.py tests/test_bench_runner.py -v
