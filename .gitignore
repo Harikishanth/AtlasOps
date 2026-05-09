@@ -14,3 +14,6 @@ venv/
 *.egg-info/
 dist/
 .DS_Store
+
+docs/*.pdf
+docs/*.png
