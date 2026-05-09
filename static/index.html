@@ -1152,36 +1152,68 @@ async function _promQuery(query) {
   } catch { return null; }
 }
 
+function _drawLoadingSparkline(canvasId, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || canvas.offsetWidth === 0) return;
+  canvas.width = canvas.offsetWidth * (window.devicePixelRatio || 1);
+  canvas.height = canvas.offsetHeight * (window.devicePixelRatio || 1);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  // Draw a flat dashed line as placeholder
+  ctx.setLineDash([6, 6]);
+  ctx.strokeStyle = color.replace(')', ', 0.3)').replace('rgb', 'rgba');
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.6);
+  ctx.lineTo(W, H * 0.6);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // Connecting text
+  ctx.fillStyle = 'rgba(74,90,120,0.6)';
+  ctx.font = `${Math.max(10, H * 0.18)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText('connecting…', W / 2, H * 0.45);
+}
+
 async function refreshPrometheusMetrics() {
-  const [errRate, cpu, rps] = await Promise.all([
-    _promQuery('sum(rate(http_requests_total{status=~"5.."}[2m])) or vector(0)'),
-    _promQuery('sum(rate(container_cpu_usage_seconds_total{namespace="default"}[2m])) or vector(0)'),
-    _promQuery('sum(rate(http_requests_total[2m])) or vector(0)'),
-  ]);
+  try {
+    // Use server-side proxy to avoid CORS — browser → app.py → Prometheus
+    const r = await fetch('/api/metrics', {signal: AbortSignal.timeout(8000)});
+    if (!r.ok) throw new Error('proxy error');
+    const d = await r.json();
 
-  const errEl = document.getElementById('metric-error-rate');
-  const cpuEl = document.getElementById('metric-cpu');
-  if (errEl && errRate !== null) {
-    const pct = (errRate * 100).toFixed(1);
-    errEl.textContent = pct + '%';
-    errEl.style.color = errRate > 0.05 ? 'var(--red)' : 'var(--green)';
-    errEl.style.textShadow = errRate > 0.05 ? '0 0 15px rgba(255,69,96,0.6)' : '0 0 15px rgba(0,227,150,0.4)';
-  }
-  if (cpuEl && cpu !== null) cpuEl.textContent = cpu.toFixed(2);
+    const errEl = document.getElementById('metric-error-rate');
+    const cpuEl = document.getElementById('metric-cpu');
+    const alertEl = document.getElementById('metric-alerts');
 
-  if (rps !== null) {
-    _sparkData.rps.push(rps); _sparkData.rps.shift();
-    _drawSparkline('spark-rps', _sparkData.rps, '#00d4ff', 'rgba(0,212,255,0.15)');
-  }
-  if (cpu !== null) {
-    _sparkData.cpu.push(cpu); _sparkData.cpu.shift();
-    _drawSparkline('spark-cpu', _sparkData.cpu, '#7b61ff', 'rgba(123,97,255,0.15)');
-  }
+    if (errEl && d.error_rate !== null) {
+      const pct = (d.error_rate * 100).toFixed(1);
+      errEl.textContent = pct + '%';
+      errEl.style.color = d.error_rate > 0.05 ? 'var(--red)' : 'var(--green)';
+      errEl.style.textShadow = d.error_rate > 0.05 ? '0 0 15px rgba(255,69,96,0.6)' : '0 0 15px rgba(0,227,150,0.4)';
+    }
+    if (cpuEl && d.cpu !== null) cpuEl.textContent = d.cpu.toFixed(2);
+    if (alertEl && d.alerts !== null) alertEl.textContent = d.alerts.toString();
 
-  const promStatus = document.getElementById('prom-status');
-  if (promStatus) {
-    promStatus.textContent = rps !== null ? '● Prometheus live' : '○ Prometheus unreachable';
-    promStatus.style.color = rps !== null ? 'var(--green)' : 'var(--textdim)';
+    if (d.rps !== null) {
+      _sparkData.rps.push(d.rps); _sparkData.rps.shift();
+      _drawSparkline('spark-rps', _sparkData.rps, '#00d4ff', 'rgba(0,212,255,0.15)');
+    }
+    if (d.cpu !== null) {
+      _sparkData.cpu.push(d.cpu); _sparkData.cpu.shift();
+      _drawSparkline('spark-cpu', _sparkData.cpu, '#7b61ff', 'rgba(123,97,255,0.15)');
+    }
+
+    const promStatus = document.getElementById('prom-status');
+    if (promStatus) {
+      const live = d.rps !== null || d.cpu !== null;
+      promStatus.textContent = live ? '● Prometheus live' : '○ Prometheus unreachable';
+      promStatus.style.color = live ? 'var(--green)' : 'var(--textdim)';
+    }
+  } catch {
+    const promStatus = document.getElementById('prom-status');
+    if (promStatus) { promStatus.textContent = '○ metrics offline'; promStatus.style.color = 'var(--textdim)'; }
   }
 }
 
@@ -1206,12 +1238,16 @@ async function refreshAlertCount() {
   }
 }
 
-if (PROM_URL) {
+// Always start metrics polling via server-side proxy (no CORS issue)
+window.addEventListener('load', () => {
+  // Show loading state immediately so canvases aren't black
+  setTimeout(() => {
+    _drawLoadingSparkline('spark-rps', '#00d4ff');
+    _drawLoadingSparkline('spark-cpu', '#7b61ff');
+  }, 100);
   refreshPrometheusMetrics();
-  refreshAlertCount();
   setInterval(refreshPrometheusMetrics, 15000);
-  setInterval(refreshAlertCount, 15000);
-}
+});
 
 // ═══════════════════════════════════════════════════════════════
 // ── Neural Network Background ──────────────────────────────────
@@ -1364,16 +1400,7 @@ async function loadRuntimeConfig() {
       gfLink.href = cfg.grafana_url;
       gfLink.textContent = 'Grafana ↗';
     }
-    // Wire Prometheus URL into sparkline polling
-    if (cfg.prometheus_url) {
-      window._cfg = {...(window._cfg||{}), prometheus_url: cfg.prometheus_url};
-      // Restart polling with real URL
-      refreshPrometheusMetrics();
-      setInterval(refreshPrometheusMetrics, 15000);
-    }
-    if (cfg.alertmanager_url) {
-      window._cfg = {...(window._cfg||{}), alertmanager_url: cfg.alertmanager_url};
-    }
+    // Prometheus polling uses /api/metrics server-side proxy — no browser CORS issues
   } catch (_) {}
 }
 

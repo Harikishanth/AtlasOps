@@ -188,6 +188,43 @@ async def thoughts():
     return JSONResponse({"thoughts": get_history()})
 
 
+@app.get("/api/metrics")
+async def proxy_metrics():
+    """Server-side Prometheus proxy — avoids browser CORS on direct GKE IP access."""
+    import httpx as _httpx
+    prom = os.getenv("PROMETHEUS_URL", "")
+    alert_url = os.getenv("ALERTMANAGER_URL", "")
+    results: dict = {"error_rate": None, "cpu": None, "rps": None, "alerts": None}
+    if not prom:
+        return JSONResponse(results)
+    queries = {
+        "error_rate": 'sum(rate(http_requests_total{status=~"5.."}[2m])) or vector(0)',
+        "cpu":        'sum(rate(container_cpu_usage_seconds_total{namespace="default"}[2m])) or vector(0)',
+        "rps":        'sum(rate(http_requests_total[2m])) or vector(0)',
+    }
+    try:
+        async with _httpx.AsyncClient(timeout=6) as client:
+            for key, query in queries.items():
+                try:
+                    r = await client.get(f"{prom}/api/v1/query", params={"query": query})
+                    if r.status_code == 200:
+                        data = r.json().get("data", {}).get("result", [])
+                        total = sum(float(x["value"][1]) for x in data if x.get("value"))
+                        results[key] = round(total, 4)
+                except Exception:
+                    pass
+            if alert_url:
+                try:
+                    ar = await client.get(f"{alert_url}/api/v2/alerts?active=true")
+                    if ar.status_code == 200:
+                        results["alerts"] = len(ar.json())
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return JSONResponse(results)
+
+
 @app.get("/health")
 async def health():
     return JSONResponse({
