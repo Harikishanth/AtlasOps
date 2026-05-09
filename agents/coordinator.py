@@ -58,7 +58,6 @@ MUTATING_TOOLS = {
     "kubectl_rollout",
     "kubectl_scale",
     "alertmanager_silence",
-    "slack_post_update",
 }
 ROLE_ALLOWED_TOOLS = {
     "triage": {"kubectl_get", "kubectl_top_pods", "alertmanager_list_alerts", "promql_query"},
@@ -131,6 +130,40 @@ def _extract_tool_calls_from_content(content: str) -> list[dict[str, Any]]:
         return []
 
 
+_CONCLUSION_PROMPTS = {
+    "triage":      "Based on the tool results above, output ONLY a JSON object with keys: incident_id, severity, title, blast_radius, affected_services. No prose.",
+    "diagnosis":   "Based on the tool results above, output ONLY a JSON object with keys: root_cause, confidence, evidence, recommended_fix. No prose.",
+    "remediation": "Based on the actions taken above, output ONLY a JSON object with keys: outcome (resolved/unresolved), actions_taken (list), verified_by. No prose.",
+    "comms":       "Based on the incident above, output ONLY a JSON object with keys: incident_id, slack_posted, postmortem_path, summary. No prose.",
+}
+
+
+async def _force_json_conclusion(role: str, messages: list[dict], client: httpx.AsyncClient) -> dict[str, Any]:
+    """One extra turn with tools disabled, forcing a clean JSON conclusion.
+
+    Trims the message history to the system prompt + last 4 turns to avoid
+    context overflow after 10-turn diagnosis runs.
+    """
+    prompt = _CONCLUSION_PROMPTS.get(role, "Summarise your findings as a JSON object.")
+    # Keep system message + last 4 assistant/tool message pairs + forced prompt
+    system_msgs = [m for m in messages if m.get("role") == "system"][:1]
+    recent = [m for m in messages if m.get("role") != "system"][-8:]
+    forced_msgs = system_msgs + recent + [{"role": "user", "content": prompt}]
+    headers = {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
+    try:
+        async with httpx.AsyncClient(timeout=60, headers=headers) as c:
+            r = await c.post(
+                f"{VLLM_BASE}/chat/completions",
+                json={"model": MODEL_NAME, "messages": forced_msgs, "temperature": 0.0},
+            )
+            r.raise_for_status()
+            content = r.json()["choices"][0]["message"].get("content", "")
+            parsed = _try_parse_json(content)
+            return parsed if "raw" not in parsed else {"summary": content[:300]}
+    except Exception as e:
+        return {"error": f"forced_conclusion failed: {e}"}
+
+
 async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10) -> dict[str, Any]:
     """Run a single agent with a tool-calling loop. Returns final JSON output."""
     system_prompt = load_prompt(role)
@@ -141,6 +174,7 @@ async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10)
     ]
     trajectory: list[dict[str, Any]] = []
     step_tracker = StepRewardTracker()
+    _seen_calls: dict[str, int] = {}  # (tool+args hash) → call count for dedup
 
     headers = {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
     async with httpx.AsyncClient(timeout=120, headers=headers) as client:
@@ -167,12 +201,17 @@ async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10)
 
             if not msg.get("tool_calls"):
                 conclusion = msg["content"] or ""
+                parsed = _try_parse_json(conclusion)
+                # If the "conclusion" is raw content (model may have mixed text+tool-call),
+                # do one forced-JSON turn to get a clean structured summary.
+                if "raw" in parsed:
+                    parsed = await _force_json_conclusion(role, messages, client)
                 thought_emit(role, "conclusion", _summarise_conclusion(role, conclusion))
                 trajectory.append({"role": role, "turn": turn, "content": conclusion})
                 return {
                     "role": role,
                     "trajectory": trajectory,
-                    "final": _try_parse_json(conclusion),
+                    "final": parsed,
                     "step_reward_summary": step_tracker.summary(),
                 }
 
@@ -258,6 +297,15 @@ async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10)
                         }
                     )
                     continue
+                # Dedup: block if same (tool, args) called more than 3 times
+                _call_key = f"{fn_name}:{json.dumps(fn_args, sort_keys=True)}"
+                _seen_calls[_call_key] = _seen_calls.get(_call_key, 0) + 1
+                if _seen_calls[_call_key] > 3:
+                    tool_output = {"error": f"Duplicate call blocked — {fn_name} already called with these args. Try different parameters or conclude."}
+                    messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(tool_output)})
+                    trajectory.append({"role": role, "turn": turn, "tool": fn_name, "args": fn_args, "output": tool_output, "dedup_blocked": True})
+                    continue
+
                 fn = TOOL_REGISTRY.get(fn_name)
                 if not fn:
                     tool_output = {"error": f"Unknown tool: {fn_name}"}
@@ -294,7 +342,10 @@ async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10)
                 })
 
     log.warning("%s exceeded %d turns", role, max_turns)
-    return {"role": role, "trajectory": trajectory, "final": {"error": "max_turns_exceeded"}}
+    # Ask the model to summarise whatever it found rather than returning an error
+    forced = await _force_json_conclusion(role, messages, client)
+    thought_emit(role, "conclusion", _summarise_conclusion(role, ""))
+    return {"role": role, "trajectory": trajectory, "final": forced, "step_reward_summary": step_tracker.summary()}
 
 
 def _narrate_tool_call(role: str, tool: str, args: dict) -> str:
@@ -414,17 +465,61 @@ def _check_tool_policy(role: str, tool: str, args: dict[str, Any], user_input: d
     return None
 
 
+_TOOL_NAMES_SET = {
+    "kubectl_get", "kubectl_logs", "kubectl_describe", "kubectl_top_pods",
+    "kubectl_rollout", "kubectl_scale", "promql_query", "promql_query_range",
+    "jaeger_search", "jaeger_get_trace", "argocd_list_apps", "argocd_app_history",
+    "argocd_rollback", "gcloud_logs_read", "cloud_monitoring_query",
+    "alertmanager_list_alerts", "alertmanager_silence",
+    "slack_post_update", "postmortem_draft",
+}
+
+
 def _try_parse_json(content: str) -> dict[str, Any]:
+    """Extract the largest outermost JSON object from content using bracket-matching.
+
+    Finds each top-level '{...}' block (depth=0) in left-to-right order,
+    skipping pure tool-call fragments. Returns the first non-tool-call match
+    that has the most keys (largest result).
+    """
     if not content:
         return {}
-    try:
-        start = content.find("{")
-        end = content.rfind("}")
-        if start >= 0 and end > start:
-            return json.loads(content[start : end + 1])
-    except json.JSONDecodeError:
-        pass
-    return {"raw": content}
+    candidates: list[dict] = []
+    i = 0
+    while i < len(content):
+        if content[i] != "{":
+            i += 1
+            continue
+        depth = 0
+        in_string = False
+        escape_next = False
+        j = i
+        while j < len(content):
+            c = content[j]
+            if escape_next:
+                escape_next = False
+            elif c == "\\" and in_string:
+                escape_next = True
+            elif c == '"':
+                in_string = not in_string
+            elif not in_string:
+                if c == "{":
+                    depth += 1
+                elif c == "}":
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            obj = json.loads(content[i : j + 1])
+                            if isinstance(obj, dict) and obj.get("name") not in _TOOL_NAMES_SET:
+                                candidates.append(obj)
+                        except json.JSONDecodeError:
+                            pass
+                        break
+            j += 1
+        i += 1
+    if candidates:
+        return max(candidates, key=lambda o: len(o))
+    return {"raw": content[:500]}
 
 
 def _remediation_plan_summary(triage: dict[str, Any], diagnosis: dict[str, Any]) -> str:

@@ -16,6 +16,12 @@ import time
 import argparse
 from pathlib import Path
 
+# Force UTF-8 stdout/stderr on Windows so LLM Unicode responses don't crash print()
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # ── Load .env ────────────────────────────────────────────────────────────────
 _env = Path(__file__).parent / ".env"
 if _env.exists():
@@ -60,7 +66,7 @@ def print_banner(scenario: str):
     backend = os.getenv("BACKEND", "vllm")
     model   = os.getenv("AGENT_MODEL", "Qwen/Qwen2.5-7B-Instruct")
     print("\n" + "=" * 70)
-    print("  AtlasOps — Multi-Agent SRE Incident Response")
+    print("  AtlasOps - Multi-Agent SRE Incident Response")
     print(f"  Backend:  {backend}")
     print(f"  Model:    {model}")
     print(f"  Scenario: {scenario}")
@@ -68,19 +74,19 @@ def print_banner(scenario: str):
 
 
 def print_agent_trace(thoughts: list):
-    ICONS = {"triage": "🔴", "diagnosis": "🔍", "remediation": "🔧", "comms": "📣"}
-    PHASE = {"tool_call": "→", "tool_result": "✓", "conclusion": "★", "thinking": "💭", "waiting_approval": "⏳"}
-    print("─" * 70)
+    ICONS = {"triage": "[T]", "diagnosis": "[D]", "remediation": "[R]", "comms": "[C]"}
+    PHASE = {"tool_call": "->", "tool_result": "OK", "conclusion": "**", "thinking": "..", "waiting_approval": "??"}
+    print("-" * 70)
     print("  AGENT TRACE")
-    print("─" * 70)
+    print("-" * 70)
     for t in thoughts:
-        icon  = ICONS.get(t.get("role", ""), "•")
-        phase = PHASE.get(t.get("phase", ""), "•")
+        icon  = ICONS.get(t.get("role", ""), " * ")
+        phase = PHASE.get(t.get("phase", ""), " . ")
         role  = t.get("role", "?").upper()
         text  = t.get("thought", "")
         tool  = f"  [{t['tool']}]" if t.get("tool") else ""
         print(f"  {icon} {role:12s} {phase}  {text[:80]}{tool}")
-    print("─" * 70 + "\n")
+    print("-" * 70 + "\n")
 
 
 async def run(scenario: str):
@@ -90,13 +96,13 @@ async def run(scenario: str):
     alert = ALERTS.get(scenario, ALERTS["hist-cloudflare-2019"])
     alert["scenario_id"] = scenario
 
-    print(f"[→] Firing alert: {alert['commonLabels']['alertname']}")
+    print(f"[->] Firing alert: {alert['commonLabels']['alertname']}")
     t0 = time.time()
 
     incident = await handle_incident(alert)
 
     elapsed = round(time.time() - t0, 1)
-    print(f"[✓] Chain complete in {elapsed}s\n")
+    print(f"[OK] Chain complete in {elapsed}s\n")
 
     thoughts = get_history()
     if thoughts:
@@ -106,11 +112,11 @@ async def run(scenario: str):
     for role in ("triage", "diagnosis", "remediation", "comms"):
         final = incident.get(role, {}).get("final", {})
         turns = len(incident.get(role, {}).get("trajectory", []))
-        print(f"  {role.upper():12s}  {turns} turns  →  {json.dumps(final)[:120]}")
+        print(f"  {role.upper():12s}  {turns} turns  ->  {json.dumps(final)[:120]}")
 
     postmortem = incident.get("comms", {}).get("final", {}).get("postmortem_path")
     if postmortem and Path(postmortem).exists():
-        print(f"\n[★] Postmortem saved: {postmortem}")
+        print(f"\n[**] Postmortem saved: {postmortem}")
 
     print(f"\n[END] Resolved: {incident.get('remediation', {}).get('final', {}).get('outcome', 'unknown')}")
     return incident
