@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from trl import GRPOConfig, GRPOTrainer
 from config.runtime import (
     SCENARIOS_BY_TIER, TIER_SAMPLING_WEIGHTS, evaluate_reward_contract,
@@ -272,16 +272,16 @@ def run_optuna_search(model_path: str, tiers: list[str], output_dir: str,
         prompts = [{"prompt": "Respond as SRE triage agent."} for _ in range(20)]
         dataset = Dataset.from_list(prompts)
 
-        train_args = TrainingArguments(
+        grpo_args = GRPOConfig(
             output_dir=f"{output_dir}/trial_{trial.number}",
             learning_rate=lr,
             per_device_train_batch_size=1,
             bf16=True, max_steps=10, report_to=[], optim="paged_adamw_8bit",
+            num_generations=num_gen, beta=beta, max_completion_length=256,
         )
-        grpo_cfg = GRPOConfig(num_generations=num_gen, beta=beta, max_completion_length=256, loss_type="dapo")
         trainer = GRPOTrainer(
-            model=model, args=train_args, train_dataset=dataset,
-            processing_class=tokenizer, grpo_config=grpo_cfg,
+            model=model, args=grpo_args, train_dataset=dataset,
+            processing_class=tokenizer,
             reward_funcs=[reward_fn],
         )
         trainer.train()
@@ -387,7 +387,7 @@ def main() -> None:
             for role in ["triage", "diagnosis", "remediation", "comms"] * 250
         ])
 
-    train_args = TrainingArguments(
+    grpo_args = GRPOConfig(
         output_dir=str(output_dir),
         learning_rate=lr,
         per_device_train_batch_size=args.batch_size,
@@ -401,20 +401,16 @@ def main() -> None:
         optim="paged_adamw_8bit",
         warmup_ratio=0.05,
         lr_scheduler_type="cosine",
-    )
-    grpo_cfg = GRPOConfig(
         num_generations=num_gen,
         max_completion_length=args.max_compl_len,
         beta=beta,
-        loss_type="dapo",
     )
 
     trainer = GRPOTrainer(
         model=model,
-        args=train_args,
+        args=grpo_args,
         train_dataset=dataset,
         processing_class=tokenizer,
-        grpo_config=grpo_cfg,
         reward_funcs=[reward_fn],  # ← online RL against real GKE cluster
     )
 
