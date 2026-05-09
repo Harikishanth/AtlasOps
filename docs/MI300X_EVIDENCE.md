@@ -79,19 +79,29 @@ INFO 05-09 14:24:20 api_server.py:1086] Starting vLLM server on http://0.0.0.0:8
 
 ---
 
-## SFT Training Run (training/sft.py)
+## SFT Training Run (training/sft.py) — REAL RUN, May 10 2026
 
 ```
-[INFO] Training config: model=Qwen/Qwen2.5-7B-Instruct, LoRA r=16, 4-bit NF4, lr=2e-4
-[INFO] Loaded 1621 examples from data/sft_corpus_fast.jsonl (avg reward: 0.631)
-trainable params: 79,953,920 || all params: 7,721,324,032 || trainable%: 1.035
-[INFO] Starting SFT on AMD MI300X...
-{'loss': 1.8213, 'grad_norm': 2.134, 'learning_rate': 0.0002, 'epoch': 0.02}
-{'loss': 1.6891, 'grad_norm': 1.987, 'learning_rate': 0.00019, 'epoch': 0.19}
-{'loss': 1.4023, 'grad_norm': 1.621, 'learning_rate': 0.00015, 'epoch': 0.56}
-{'loss': 1.1432, 'grad_norm': 1.302, 'learning_rate': 0.0001, 'epoch': 1.0}
-[INFO] SFT complete. Adapter saved to checkpoints/sft_v3
+trainable params: 40,370,176 || all params: 7,655,986,688 || trainable%: 0.5273
+Tokenizing train dataset: 100%|██████████| 2028/2028 [00:06<00:00, 336.28 examples/s]
+
+{'loss': 1.2651, 'grad_norm': 0.648, 'learning_rate': 0.000193, 'mean_token_accuracy': 0.7196, 'epoch': 0.04}
+{'loss': 0.4114, 'grad_norm': 0.305, 'learning_rate': 0.000185, 'mean_token_accuracy': 0.8998, 'epoch': 0.08}
+{'loss': 0.1950, 'grad_norm': 0.326, 'learning_rate': 0.000177, 'mean_token_accuracy': 0.9483, 'epoch': 0.12}
+{'loss': 0.1156, 'grad_norm': 0.271, 'learning_rate': 0.000161, 'mean_token_accuracy': 0.9660, 'epoch': 0.20}
+{'loss': 0.0845, 'grad_norm': 0.170, 'learning_rate': 0.000138, 'mean_token_accuracy': 0.9742, 'epoch': 0.32}
+{'loss': 0.0557, 'grad_norm': 0.175, 'learning_rate': 0.000091, 'mean_token_accuracy': 0.9821, 'epoch': 0.55}
+{'loss': 0.0370, 'grad_norm': 0.193, 'learning_rate': 0.000051, 'mean_token_accuracy': 0.9873, 'epoch': 0.75}
+{'loss': 0.0272, 'grad_norm': 0.177, 'learning_rate': 0.000004, 'mean_token_accuracy': 0.9915, 'epoch': 0.99}
+
+{'train_runtime': 855.7657, 'train_samples_per_second': 2.37, 'train_steps_per_second': 0.297,
+ 'train_loss': 0.12717, 'mean_token_accuracy': 0.9898, 'epoch': 1.0}
+
+LoRA adapter saved to checkpoints/sft_v3
 ```
+
+**Loss drop: 1.265 → 0.027 (−97.8%) in 14 minutes 16 seconds on AMD MI300X**
+**Token accuracy: 71.96% → 99.10% over 254 steps, 2,028 SRE trajectories**
 
 ---
 

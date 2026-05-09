@@ -13,8 +13,8 @@ from pathlib import Path
 
 from datasets import load_dataset
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
-from trl import SFTTrainer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from trl import SFTTrainer, SFTConfig
 
 # Hugging Face Optimum-AMD: AMD ROCm backend for optimised training kernels.
 # Install: pip install optimum[amd]
@@ -81,7 +81,7 @@ def main() -> None:
     model = get_peft_model(model, LORA_CONFIG)
     model.print_trainable_parameters()
 
-    train_args = TrainingArguments(
+    train_args = SFTConfig(
         output_dir=str(output_dir),
         num_train_epochs=args.epochs,
         learning_rate=args.lr,
@@ -92,14 +92,14 @@ def main() -> None:
         save_strategy="epoch",
         report_to=[],
         optim="paged_adamw_8bit",
+        max_seq_length=args.max_seq_len,
     )
 
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         train_dataset=dataset,
         args=train_args,
-        max_seq_length=args.max_seq_len,
     )
     trainer.train()
     # Save only the LoRA adapter (~40 MB), not the full 7B weights
