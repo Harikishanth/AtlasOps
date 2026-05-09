@@ -1,143 +1,130 @@
 """AtlasOps inference baseline.
 
-Runs a single incident response chain against the coordinator
-and prints the full agent trace.
+Runs a single incident response chain directly (no separate server needed).
+Loads .env automatically.
 
 Usage:
-    # Against running coordinator
     python inference.py
-
-    # Against HF Space
-    COORDINATOR_URL=https://your-space.hf.space python inference.py
-
-    # With Fireworks AI backend
-    BACKEND=fireworks LLM_API_KEY=fw_xxxx python inference.py
+    python inference.py --scenario hist-github-2018
 """
 
+import asyncio
 import json
 import os
 import sys
 import time
+import argparse
+from pathlib import Path
 
-import httpx
+# ── Load .env ────────────────────────────────────────────────────────────────
+_env = Path(__file__).parent / ".env"
+if _env.exists():
+    for line in _env.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, _, v = line.partition("=")
+            os.environ.setdefault(k.strip(), v.strip())
 
-
-COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://localhost:9099")
-SCENARIO = os.getenv("SCENARIO", "hist-cloudflare-2019")
-
-# Simulated Alertmanager webhook payload for Cloudflare 2019 replay
-SAMPLE_ALERT = {
-    "version": "4",
-    "groupKey": "{}:{alertname='HighCPUSaturation'}",
-    "status": "firing",
-    "receiver": "atlasops-coordinator",
-    "commonLabels": {
-        "alertname": "HighCPUSaturation",
-        "severity": "critical",
-        "namespace": "default",
-        "scenario": SCENARIO,
-    },
-    "commonAnnotations": {
-        "summary": "CPU saturation on frontend — 100% load across all replicas",
-        "description": "StressChaos injected simulating Cloudflare 2019 regex backtracking incident",
-    },
-    "alerts": [
-        {
+# ── Sample alerts per scenario ───────────────────────────────────────────────
+ALERTS = {
+    "hist-cloudflare-2019": {
+        "commonLabels": {
+            "alertname": "HighCPUSaturation",
+            "severity": "critical",
+            "namespace": "default",
+        },
+        "commonAnnotations": {
+            "summary": "CPU saturation on frontend — Cloudflare 2019 replay",
+        },
+        "alerts": [{
             "status": "firing",
-            "labels": {
-                "alertname": "HighCPUSaturation",
-                "container": "server",
-                "namespace": "default",
-                "pod": "frontend-7d8b9c4f6-x2kp9",
-                "severity": "critical",
-            },
-            "annotations": {
-                "summary": "frontend CPU at 100%",
-                "runbook": "https://github.com/Harikishanth/AtlasOps/blob/main/docs/postmortems/2026-05-09-cloudflare-2019-replay.md",
-            },
+            "labels": {"alertname": "HighCPUSaturation", "pod": "frontend-xxx", "severity": "critical"},
+            "annotations": {"summary": "frontend CPU at 100%"},
             "startsAt": "2026-05-09T14:23:31Z",
-        }
-    ],
+        }],
+    },
+    "hist-github-2018": {
+        "commonLabels": {"alertname": "DatabaseFailoverLoop", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "Cloud SQL primary killed — replica promotion loop"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "DatabaseFailoverLoop", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "sf-001": {
+        "commonLabels": {"alertname": "PodCrashLooping", "severity": "warning", "namespace": "default"},
+        "commonAnnotations": {"summary": "cartservice pod killed by OOMKill"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "PodCrashLooping", "pod": "cartservice-xxx", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
 }
 
 
-def print_banner():
+def print_banner(scenario: str):
+    backend = os.getenv("BACKEND", "vllm")
+    model   = os.getenv("AGENT_MODEL", "Qwen/Qwen2.5-7B-Instruct")
     print("\n" + "=" * 70)
     print("  AtlasOps — Multi-Agent SRE Incident Response")
-    print(f"  Coordinator: {COORDINATOR_URL}")
-    print(f"  Scenario:    {SCENARIO}")
+    print(f"  Backend:  {backend}")
+    print(f"  Model:    {model}")
+    print(f"  Scenario: {scenario}")
     print("=" * 70 + "\n")
-
-
-def check_health() -> bool:
-    try:
-        r = httpx.get(f"{COORDINATOR_URL}/health", timeout=5)
-        data = r.json()
-        print(f"[START] Coordinator healthy — model: {data.get('model', 'unknown')}")
-        return True
-    except Exception as e:
-        print(f"[ERROR] Coordinator not reachable: {e}")
-        print(f"        Start it with: python agents/coordinator.py")
-        return False
-
-
-def run_inference() -> dict:
-    print(f"[STEP] Firing alert: {SAMPLE_ALERT['commonLabels']['alertname']}")
-    t0 = time.time()
-
-    with httpx.Client(timeout=300) as client:
-        r = client.post(f"{COORDINATOR_URL}/webhook", json=SAMPLE_ALERT)
-        r.raise_for_status()
-        result = r.json()
-
-    elapsed = round(time.time() - t0, 1)
-    print(f"[STEP] Webhook accepted — incident_id: {result.get('incident_id')}")
-    print(f"[STEP] Elapsed: {elapsed}s\n")
-    return result
-
-
-def fetch_thoughts() -> list:
-    try:
-        r = httpx.get(f"{COORDINATOR_URL}/thoughts", timeout=5)
-        return r.json().get("thoughts", [])
-    except Exception:
-        return []
 
 
 def print_agent_trace(thoughts: list):
     ICONS = {"triage": "🔴", "diagnosis": "🔍", "remediation": "🔧", "comms": "📣"}
-    PHASE = {"tool_call": "→", "tool_result": "✓", "conclusion": "★"}
+    PHASE = {"tool_call": "→", "tool_result": "✓", "conclusion": "★", "thinking": "💭", "waiting_approval": "⏳"}
     print("─" * 70)
     print("  AGENT TRACE")
     print("─" * 70)
     for t in thoughts:
-        icon = ICONS.get(t["role"], "•")
-        phase = PHASE.get(t["phase"], "•")
-        print(f"  {icon} {t['role'].upper():12s} {phase}  {t['thought']}")
+        icon  = ICONS.get(t.get("role", ""), "•")
+        phase = PHASE.get(t.get("phase", ""), "•")
+        role  = t.get("role", "?").upper()
+        text  = t.get("thought", "")
+        tool  = f"  [{t['tool']}]" if t.get("tool") else ""
+        print(f"  {icon} {role:12s} {phase}  {text[:80]}{tool}")
     print("─" * 70 + "\n")
 
 
-def main():
-    print_banner()
+async def run(scenario: str):
+    from agents.coordinator import handle_incident
+    from agents.stream import get_history
 
-    if not check_health():
-        sys.exit(1)
+    alert = ALERTS.get(scenario, ALERTS["hist-cloudflare-2019"])
+    alert["scenario_id"] = scenario
 
-    try:
-        result = run_inference()
-    except httpx.HTTPError as e:
-        print(f"[ERROR] HTTP error: {e}")
-        sys.exit(1)
+    print(f"[→] Firing alert: {alert['commonLabels']['alertname']}")
+    t0 = time.time()
 
-    thoughts = fetch_thoughts()
+    incident = await handle_incident(alert)
+
+    elapsed = round(time.time() - t0, 1)
+    print(f"[✓] Chain complete in {elapsed}s\n")
+
+    thoughts = get_history()
     if thoughts:
         print_agent_trace(thoughts)
 
-    # Print summary
-    print("[END] Incident response summary:")
-    print(json.dumps(result, indent=2))
+    # Summary per role
+    for role in ("triage", "diagnosis", "remediation", "comms"):
+        final = incident.get(role, {}).get("final", {})
+        turns = len(incident.get(role, {}).get("trajectory", []))
+        print(f"  {role.upper():12s}  {turns} turns  →  {json.dumps(final)[:120]}")
 
-    return result
+    postmortem = incident.get("comms", {}).get("final", {}).get("postmortem_path")
+    if postmortem and Path(postmortem).exists():
+        print(f"\n[★] Postmortem saved: {postmortem}")
+
+    print(f"\n[END] Resolved: {incident.get('remediation', {}).get('final', {}).get('outcome', 'unknown')}")
+    return incident
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--scenario", default="hist-cloudflare-2019",
+                        choices=list(ALERTS.keys()),
+                        help="Which scenario alert to fire")
+    args = parser.parse_args()
+
+    print_banner(args.scenario)
+    asyncio.run(run(args.scenario))
 
 
 if __name__ == "__main__":
