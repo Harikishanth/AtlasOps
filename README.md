@@ -1,3 +1,14 @@
+---
+title: AtlasOps
+emoji: 🚨
+colorFrom: red
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: true
+short_description: Multi-agent SRE platform — 4 AI agents respond to real GKE incidents
+---
+
 # AtlasOps — Can 4 AI agents replace an on-call SRE team?
 
 > **AMD Developer Hackathon 2026** | Real GKE cluster · Real Chaos Mesh · Real Prometheus alerts · AMD MI300X
