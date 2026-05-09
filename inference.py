@@ -35,6 +35,22 @@ if _env.exists():
 
 # ── Scenario catalogue ───────────────────────────────────────────────────────
 ALERTS = {
+    # ── Warmup (trivial — verify agent chain works) ───────────────────────────
+    "warmup-001": {
+        "commonLabels": {"alertname": "HighErrorRate", "severity": "warning", "namespace": "default"},
+        "commonAnnotations": {"summary": "frontend HTTP 5xx rate above 1% — low severity warmup"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "HighErrorRate", "service": "frontend", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "warmup-002": {
+        "commonLabels": {"alertname": "PodNotReady", "severity": "warning", "namespace": "default"},
+        "commonAnnotations": {"summary": "adservice pod not ready — single pod, low impact"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "PodNotReady", "pod": "adservice-xxx", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "warmup-003": {
+        "commonLabels": {"alertname": "HighLatencyP99", "severity": "warning", "namespace": "default"},
+        "commonAnnotations": {"summary": "recommendationservice p99 latency > 500ms — intermittent"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "HighLatencyP99", "service": "recommendationservice", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
     # ── Named historical replays ─────────────────────────────────────────────
     "hist-cloudflare-2019": {
         "commonLabels": {"alertname": "HighCPUSaturation", "severity": "critical", "namespace": "default"},
@@ -61,6 +77,31 @@ ALERTS = {
         "commonAnnotations": {"summary": "HTTP/2 client misconfig causing stream exhaustion — checkout degraded (Slack 2022)"},
         "alerts": [{"status": "firing", "labels": {"alertname": "HTTP2StreamExhaustion", "service": "checkoutservice", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"}],
     },
+    "hist-aws-s3-2017": {
+        "commonLabels": {"alertname": "DeploymentReplicasDown", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "Argo CD bad sync removed deployment replicas — AWS S3 2017 replay (typo'd capacity)"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "DeploymentReplicasDown", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "hist-azure-dns-2019": {
+        "commonLabels": {"alertname": "StaleDNSCache", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "CoreDNS misconfig + stale cache — service discovery broken cluster-wide (Azure DNS 2019)"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "StaleDNSCache", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "hist-fastly-2021": {
+        "commonLabels": {"alertname": "EnvoyFilterCorruption", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "Bad Envoy filter via Linkerd — all frontend traffic corrupted (Fastly 2021 VCL bug replay)"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "EnvoyFilterCorruption", "service": "frontend", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "hist-facebook-bgp-2021": {
+        "commonLabels": {"alertname": "NetworkPartitionControlPlane", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "NetworkChaos partition between service mesh and control plane — BGP withdraw replay (Facebook 2021)"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "NetworkPartitionControlPlane", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "hist-knight-capital-2012": {
+        "commonLabels": {"alertname": "PartialDeploymentMismatch", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "Argo CD partial sync — old + new checkout code running simultaneously (Knight Capital 2012 replay)"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "PartialDeploymentMismatch", "service": "checkoutservice", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
     # ── Single-fault scenarios ────────────────────────────────────────────────
     "sf-001": {
         "commonLabels": {"alertname": "PodCrashLooping", "severity": "warning", "namespace": "default"},
@@ -82,6 +123,26 @@ ALERTS = {
         "commonAnnotations": {"summary": "50% packet loss on frontend — flaky network interface"},
         "alerts": [{"status": "firing", "labels": {"alertname": "NetworkPacketLoss", "service": "frontend", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"}],
     },
+    "sf-005": {
+        "commonLabels": {"alertname": "RedisCartPartition", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "NetworkChaos partition between Redis and cartservice — cart reads/writes failing"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "RedisCartPartition", "service": "redis-cart", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "sf-006": {
+        "commonLabels": {"alertname": "DNSRandomFailure", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "DNSChaos random failures on auth service path — CoreDNS degraded"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "DNSRandomFailure", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "sf-007": {
+        "commonLabels": {"alertname": "DiskPressure", "severity": "warning", "namespace": "default"},
+        "commonAnnotations": {"summary": "IOChaos filling /var/log on emailservice — disk at 95%, notification backlog building"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "DiskPressure", "service": "emailservice", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
+    "sf-008": {
+        "commonLabels": {"alertname": "ClockSkew", "severity": "warning", "namespace": "default"},
+        "commonAnnotations": {"summary": "TimeChaos on paymentservice — JWT clock skew causing token validation failures"},
+        "alerts": [{"status": "firing", "labels": {"alertname": "ClockSkew", "service": "paymentservice", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"}],
+    },
     # ── Cascade scenarios ─────────────────────────────────────────────────────
     "cs-001": {
         "commonLabels": {"alertname": "CascadeLatencySpike", "severity": "critical", "namespace": "default"},
@@ -100,6 +161,30 @@ ALERTS = {
             {"status": "firing", "labels": {"alertname": "CartServiceErrors", "service": "cartservice", "severity": "critical"}, "startsAt": "2026-05-09T14:24:00Z"},
         ],
     },
+    "cs-003": {
+        "commonLabels": {"alertname": "RecommendationCPUHog", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "recommendationservice CPU hog → frontend latency spike → user-facing P1"},
+        "alerts": [
+            {"status": "firing", "labels": {"alertname": "HighCPUThrottle", "service": "recommendationservice", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"},
+            {"status": "firing", "labels": {"alertname": "FrontendLatencySpike", "service": "frontend", "severity": "warning"}, "startsAt": "2026-05-09T14:24:00Z"},
+        ],
+    },
+    "cs-004": {
+        "commonLabels": {"alertname": "EmailDiskFullCascade", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "emailservice disk full → notification backlog → checkout confirmation timeout cascade"},
+        "alerts": [
+            {"status": "firing", "labels": {"alertname": "DiskPressure", "service": "emailservice", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"},
+            {"status": "firing", "labels": {"alertname": "CheckoutTimeout", "service": "checkoutservice", "severity": "critical"}, "startsAt": "2026-05-09T14:25:00Z"},
+        ],
+    },
+    "cs-005": {
+        "commonLabels": {"alertname": "CloudSQLConnectionExhaustion", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "Cloud SQL connection pool exhausted → cartservice 500s → checkout cascade failure"},
+        "alerts": [
+            {"status": "firing", "labels": {"alertname": "CloudSQLConnectionExhaustion", "service": "cartservice", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"},
+            {"status": "firing", "labels": {"alertname": "CheckoutServiceErrors", "service": "checkoutservice", "severity": "critical"}, "startsAt": "2026-05-09T14:24:30Z"},
+        ],
+    },
     # ── Multi-fault scenarios ─────────────────────────────────────────────────
     "mf-001": {
         "commonLabels": {"alertname": "MultiServiceDegradation", "severity": "critical", "namespace": "default"},
@@ -110,9 +195,42 @@ ALERTS = {
             {"status": "firing", "labels": {"alertname": "NetworkPacketLoss", "service": "frontend", "severity": "warning"}, "startsAt": "2026-05-09T14:24:00Z"},
         ],
     },
+    "mf-002": {
+        "commonLabels": {"alertname": "RedisAndMemoryFault", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "Redis partition + recommendationservice memory pressure simultaneously — compound degradation"},
+        "alerts": [
+            {"status": "firing", "labels": {"alertname": "RedisCartPartition", "service": "redis-cart", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"},
+            {"status": "firing", "labels": {"alertname": "MemoryPressure", "service": "recommendationservice", "severity": "warning"}, "startsAt": "2026-05-09T14:23:50Z"},
+        ],
+    },
+    "mf-003": {
+        "commonLabels": {"alertname": "DNSAndNetworkFault", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "DNS random failures + currencyservice network delay — auth + checkout both broken"},
+        "alerts": [
+            {"status": "firing", "labels": {"alertname": "DNSRandomFailure", "severity": "critical"}, "startsAt": "2026-05-09T14:23:31Z"},
+            {"status": "firing", "labels": {"alertname": "CascadeLatencySpike", "service": "currencyservice", "severity": "warning"}, "startsAt": "2026-05-09T14:24:00Z"},
+        ],
+    },
+    "mf-004": {
+        "commonLabels": {"alertname": "ClockSkewAndCorruption", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "TimeChaos clock skew on paymentservice + cartservice network corruption — JWT + cart both failing"},
+        "alerts": [
+            {"status": "firing", "labels": {"alertname": "ClockSkew", "service": "paymentservice", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"},
+            {"status": "firing", "labels": {"alertname": "NetworkPacketCorruption", "service": "cartservice", "severity": "critical"}, "startsAt": "2026-05-09T14:23:45Z"},
+        ],
+    },
+    "mf-005": {
+        "commonLabels": {"alertname": "IOAndNetworkFault", "severity": "critical", "namespace": "default"},
+        "commonAnnotations": {"summary": "emailservice IO fault + checkoutservice network delay — notification + checkout both degraded"},
+        "alerts": [
+            {"status": "firing", "labels": {"alertname": "DiskPressure", "service": "emailservice", "severity": "warning"}, "startsAt": "2026-05-09T14:23:31Z"},
+            {"status": "firing", "labels": {"alertname": "CheckoutTimeout", "service": "checkoutservice", "severity": "warning"}, "startsAt": "2026-05-09T14:24:00Z"},
+        ],
+    },
 }
 
 SCENARIO_GROUPS = {
+    "warmup":  [k for k in ALERTS if k.startswith("warmup-")],
     "hist":    [k for k in ALERTS if k.startswith("hist-")],
     "sf":      [k for k in ALERTS if k.startswith("sf-")],
     "cascade": [k for k in ALERTS if k.startswith("cs-")],
