@@ -258,9 +258,11 @@
   /* ── SVG Service Topology ── */
   .topology-section {
     border-top: 1px solid var(--border);
-    background: rgba(6,10,18,0.8);
+    background: rgba(6,10,18,0.95);
     padding: 10px 14px 12px;
     flex-shrink: 0;
+    position: relative;
+    z-index: 10;
   }
   .topology-header {
     font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
@@ -268,8 +270,10 @@
     display: flex; align-items: center; justify-content: space-between;
   }
   .topo-svg {
-    width: 100%; height: 200px;
+    width: 100%; height: 220px;
     overflow: visible;
+    position: relative;
+    z-index: 10;
   }
 
   /* SVG node states */
@@ -360,17 +364,17 @@
   .thought-diagnosis  { border-left-color: var(--accent2); }
   .thought-remediation{ border-left-color: var(--yellow);  }
   .thought-comms      { border-left-color: var(--green);   }
-  .thought-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .thought-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
   .thought-content { flex: 1; }
   .thought-role {
-    font-size: 9px; font-weight: 800; letter-spacing: 2.5px;
-    text-transform: uppercase; margin-bottom: 2px;
+    font-size: 10px; font-weight: 800; letter-spacing: 2.5px;
+    text-transform: uppercase; margin-bottom: 3px;
   }
   .thought-triage     .thought-role { color: var(--red); }
   .thought-diagnosis  .thought-role { color: var(--accent2); }
   .thought-remediation .thought-role { color: var(--yellow); }
   .thought-comms      .thought-role { color: var(--green); }
-  .thought-text { font-size: 11px; line-height: 1.55; color: var(--text); }
+  .thought-text { font-size: 12px; line-height: 1.6; color: var(--text); }
   .thought-tool {
     display: inline-block; margin-top: 3px;
     padding: 1px 7px; border-radius: 3px;
