@@ -100,31 +100,57 @@ def bounded_speed_score(seconds: float, tier: str) -> float:
 
 
 def evaluate_reward_contract(episode: dict[str, Any]) -> dict[str, Any]:
-    """Tier-aware anti-gaming reward contract used across train/eval/bench."""
-    tier = str(episode.get("tier", "unknown"))
-    resolved = bool(episode.get("resolved", False))
-    outcome = str(episode.get("outcome", "unknown"))
-    turns = int(episode.get("total_turns", 0))
-    ttr = float(episode.get("time_to_resolve_s", 9999))
-    judge = episode.get("judge", {}) or {}
-    reasoning = float(judge.get("reasoning", 0.0))
-    correctness = float(judge.get("correctness", 0.0))
-    efficiency = float(judge.get("efficiency", 0.0))
+    """Tier-aware anti-gaming reward contract used across train/eval/bench.
+
+    Improvements over baseline:
+      + Red herring bonus (+0.15): rewards agents that dismiss misleading symptoms
+        on multi-fault/adversarial/named-replay tiers (scored by 72B judge)
+      + Phase skip penalty (-0.20): penalises agents that skip investigation phases
+      + Lazy investigation penalty (-0.15): penalises fast resolution without evidence
+        gathering on hard tiers (likely guessed, not diagnosed)
+    """
+    tier      = str(episode.get("tier", "unknown"))
+    resolved  = bool(episode.get("resolved", False))
+    outcome   = str(episode.get("outcome", "unknown"))
+    turns     = int(episode.get("total_turns", 0))
+    ttr       = float(episode.get("time_to_resolve_s", 9999))
+    judge     = episode.get("judge", {}) or {}
+
+    reasoning    = float(judge.get("reasoning",            0.0))
+    correctness  = float(judge.get("correctness",          0.0))
+    efficiency   = float(judge.get("efficiency",           0.0))
+    red_herring  = float(judge.get("red_herring_handling", 0.5))
 
     r_resolve = 1.0 if resolved else (0.5 if outcome == "partial" else 0.0)
-    r_speed = bounded_speed_score(ttr, tier)
+    r_speed   = bounded_speed_score(ttr, tier)
     r_evidence = clamp01((reasoning + correctness) / 2.0)
-    r_safety = clamp01(efficiency)
-    r_comms = 1.0 if episode.get("postmortem_path") else 0.3
+    r_safety   = clamp01(efficiency)
+    r_comms    = 1.0 if episode.get("postmortem_path") else 0.3
 
+    # ── Red herring bonus ─────────────────────────────────────────────────────
+    # Only awarded on tiers that contain misleading symptoms. Requires the 72B
+    # judge to score red_herring_handling >= 0.8 (correctly dismissed red herrings).
+    _rh_tiers = {"multi_fault", "named_replays", "adversarial"}
+    red_herring_bonus = 0.15 if (tier in _rh_tiers and red_herring >= 0.8) else 0.0
+
+    # ── Penalties ─────────────────────────────────────────────────────────────
     penalties = {
-        "command_spam": 0.10 if turns > 40 else 0.0,
-        "false_resolution": 0.25 if (not resolved and outcome == "resolved") else 0.0,
-        "unsafe_shortcut": 0.20 if efficiency < 0.3 else 0.0,
+        "command_spam":          0.10 if turns > 40 else 0.0,
+        "false_resolution":      0.25 if (not resolved and outcome == "resolved") else 0.0,
+        "unsafe_shortcut":       0.20 if efficiency < 0.3 else 0.0,
         "hallucinated_evidence": 0.20 if (reasoning < 0.25 and correctness < 0.5) else 0.0,
-        "over_silence": 0.10 if ("silence" in json.dumps(episode).lower() and not resolved) else 0.0,
+        "over_silence":          0.10 if ("silence" in json.dumps(episode).lower() and not resolved) else 0.0,
+        # Phase ordering: too few turns without resolution = investigation was skipped
+        "phase_skip":            0.20 if (turns < 4 and not resolved) else 0.0,
+        # Lazy investigation: suspiciously fast resolution on hard tiers without
+        # enough tool calls suggests the agent guessed rather than diagnosed
+        "lazy_investigation":    0.15 if (
+            resolved and turns < 5
+            and tier not in ("warmup", "single_fault")
+        ) else 0.0,
     }
 
+    # ── Tier-specific weight adjustments ─────────────────────────────────────
     weights = dict(BASE_REWARD_WEIGHTS)
     if tier == "single_fault":
         weights.update({"r_evidence": 0.25, "r_speed": 0.10})
@@ -138,25 +164,27 @@ def evaluate_reward_contract(episode: dict[str, Any]) -> dict[str, Any]:
 
     weighted = (
         weights["r_resolve"] * r_resolve
-        + weights["r_speed"] * r_speed
+        + weights["r_speed"]   * r_speed
         + weights["r_evidence"] * r_evidence
-        + weights["r_safety"] * r_safety
-        + weights["r_comms"] * r_comms
+        + weights["r_safety"]  * r_safety
+        + weights["r_comms"]   * r_comms
+        + red_herring_bonus
     )
     penalty_total = sum(penalties.values())
     total = clamp01(weighted - penalty_total)
 
     return {
         "components": {
-            "resolve": round(r_resolve, 4),
-            "speed": round(r_speed, 4),
-            "evidence": round(r_evidence, 4),
-            "safety": round(r_safety, 4),
-            "comms": round(r_comms, 4),
+            "resolve":           round(r_resolve,        4),
+            "speed":             round(r_speed,          4),
+            "evidence":          round(r_evidence,       4),
+            "safety":            round(r_safety,         4),
+            "comms":             round(r_comms,          4),
+            "red_herring_bonus": round(red_herring_bonus, 4),
         },
-        "penalties": {k: round(v, 4) for k, v in penalties.items()},
+        "penalties":     {k: round(v, 4) for k, v in penalties.items()},
         "penalty_total": round(penalty_total, 4),
-        "total": round(total, 4),
+        "total":         round(total, 4),
     }
 
 
@@ -287,19 +315,28 @@ class CurriculumManager:
 class StepRewardTracker:
     """Accumulates dense per-tool-call rewards within one agent role's turn loop.
 
-    Formula (adapted from aws_rl_env):
-      progress_delta × 0.8
-      + 0.1 if progress moved forward
-      × 0.5 if tool failed (error penalty)
-      − 0.1 per rollback detected
-      + 0.02 for a successful idempotent retry
-      clamped to [−0.5, 0.99]
+    Base formula (progress-based):
+      progress_delta × 0.8 + 0.1 if forward progress
+      × 0.5 if tool failed
+      − 0.1 per rollback
 
+    Tool category bonuses (per-action scoring):
+      +0.05  investigative tool success (evidence gathering rewarded)
+      +0.08  mutating tool success (remediation action rewarded)
+      −0.08  mutating tool failure (failed fix penalised harder)
+      −0.05  redundant call (exact same tool+args seen before)
+
+    Clamped to [−0.5, 0.99].
     Partial progress = success_count / total_calls (monotonic — never decreases).
     """
 
     _MUTATING = frozenset({
         "argocd_rollback", "kubectl_rollout", "kubectl_scale", "alertmanager_silence",
+    })
+    _INVESTIGATIVE = frozenset({
+        "promql_query", "promql_query_range", "jaeger_search", "jaeger_get_trace",
+        "kubectl_logs", "kubectl_describe", "alertmanager_list_alerts",
+        "gcloud_logs_read", "cloud_monitoring_query",
     })
 
     def __init__(self) -> None:
@@ -341,6 +378,17 @@ class StepRewardTracker:
             r -= 0.1
         if idempotent_retry:
             r += 0.02
+
+        # ── Tool category bonuses ──────────────────────────────────────────
+        if success and tool_name in self._INVESTIGATIVE:
+            r += 0.05   # reward evidence gathering
+        if success and tool_name in self._MUTATING:
+            r += 0.08   # reward successful remediation
+        if not success and tool_name in self._MUTATING:
+            r -= 0.08   # extra penalty for failed mutating action
+        if not idempotent_retry and self._was_tried(tool_name, args):
+            r -= 0.05   # penalty for redundant call with same args
+
         r = max(-0.5, min(0.99, r))
 
         self._step_rewards.append(r)
