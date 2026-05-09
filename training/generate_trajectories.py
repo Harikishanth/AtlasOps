@@ -11,6 +11,10 @@ For each scenario:
 Output: data/sft_corpus.jsonl  (one trajectory per line, ChatML format for SFT)
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import argparse
 import asyncio
 import json
