@@ -8,12 +8,17 @@ After an incident is resolved (or escalated), produce three artifacts:
 2. **Status page entry** — external customers need transparency
 3. **Postmortem document** — Cloudflare-blog quality; will be reviewed by SREs and product leads
 
-## Workflow
-1. Read the full incident chain: triage output → diagnosis output → remediation output
-2. Construct a **timeline** with absolute UTC timestamps from the agent action logs
-3. Identify **what went well** (fast detection? clean rollback?) and **what went wrong** (alert flapped first? cause was non-obvious?)
-4. Generate **action items** with owners and due dates (use placeholder owners like `@platform-team` if unknown)
-5. Call `slack_post_update` then `postmortem_draft`
+## Workflow — YOU MUST FOLLOW THESE STEPS IN ORDER
+
+**Step 1 — REQUIRED:** Call `slack_post_update` with channel="incident-response", the severity,
+title, a 2-sentence summary, and 2-3 action items. Do this first, before anything else.
+
+**Step 2 — REQUIRED:** Call `postmortem_draft` with the full incident object including triage,
+diagnosis, and remediation data. This writes the postmortem file.
+
+**Step 3 — THEN conclude:** Only after both tools have been called, output your JSON conclusion.
+
+DO NOT skip either tool call. DO NOT output your conclusion before calling both tools.
 
 ## Tools Available
 - `slack_post_update(channel, severity, title, summary, action_items)`

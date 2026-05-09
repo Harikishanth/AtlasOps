@@ -174,7 +174,8 @@ async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10)
     ]
     trajectory: list[dict[str, Any]] = []
     step_tracker = StepRewardTracker()
-    _seen_calls: dict[str, int] = {}  # (tool+args hash) → call count for dedup
+    _seen_calls: dict[str, int] = {}   # (tool+args hash) → call count (exact-args dedup)
+    _tool_counts: dict[str, int] = {}  # tool_name → total calls this run (per-tool cap)
 
     headers = {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
     async with httpx.AsyncClient(timeout=120, headers=headers) as client:
@@ -202,9 +203,16 @@ async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10)
             if not msg.get("tool_calls"):
                 conclusion = msg["content"] or ""
                 parsed = _try_parse_json(conclusion)
-                # If the "conclusion" is raw content (model may have mixed text+tool-call),
+                # If raw, or if conclusion looks like tool args instead of a role conclusion,
                 # do one forced-JSON turn to get a clean structured summary.
-                if "raw" in parsed:
+                _ROLE_REQUIRED_KEYS = {
+                    "triage": {"severity"},
+                    "diagnosis": {"root_cause"},
+                    "remediation": {"outcome"},
+                    "comms": {"slack_posted"},
+                }
+                _required = _ROLE_REQUIRED_KEYS.get(role, set())
+                if "raw" in parsed or (_required and not _required.intersection(parsed.keys())):
                     parsed = await _force_json_conclusion(role, messages, client)
                 thought_emit(role, "conclusion", _summarise_conclusion(role, conclusion))
                 trajectory.append({"role": role, "turn": turn, "content": conclusion})
@@ -297,13 +305,22 @@ async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10)
                         }
                     )
                     continue
-                # Dedup: block if same (tool, args) called more than 3 times
+                # Dedup guard 1: same (tool + exact args) called >3 times
                 _call_key = f"{fn_name}:{json.dumps(fn_args, sort_keys=True)}"
                 _seen_calls[_call_key] = _seen_calls.get(_call_key, 0) + 1
                 if _seen_calls[_call_key] > 3:
-                    tool_output = {"error": f"Duplicate call blocked — {fn_name} already called with these args. Try different parameters or conclude."}
+                    tool_output = {"error": f"Duplicate call blocked — {fn_name} already called with these exact args. Try different parameters or produce your conclusion."}
                     messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(tool_output)})
                     trajectory.append({"role": role, "turn": turn, "tool": fn_name, "args": fn_args, "output": tool_output, "dedup_blocked": True})
+                    continue
+                # Dedup guard 2: same tool called >6 times total (catches arg-variation loops)
+                _TOOL_CAPS = {"promql_query": 6, "promql_query_range": 4, "kubectl_get": 5, "kubectl_logs": 4}
+                _tool_counts[fn_name] = _tool_counts.get(fn_name, 0) + 1
+                _cap = _TOOL_CAPS.get(fn_name, 8)
+                if _tool_counts[fn_name] > _cap:
+                    tool_output = {"error": f"Tool cap reached — {fn_name} called {_tool_counts[fn_name]} times this run (limit {_cap}). You have enough data; produce your conclusion now."}
+                    messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(tool_output)})
+                    trajectory.append({"role": role, "turn": turn, "tool": fn_name, "args": fn_args, "output": tool_output, "cap_blocked": True})
                     continue
 
                 fn = TOOL_REGISTRY.get(fn_name)
