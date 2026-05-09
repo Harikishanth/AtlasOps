@@ -893,29 +893,203 @@
 </div>
 
 <!-- ── About Tab ── -->
-<div id="tab-about" class="tab-panel" style="padding:80px 40px 40px">
-  <div style="max-width:820px;margin:0 auto;position:relative;z-index:2">
-    <h2 style="font-size:18px;margin-bottom:16px;color:var(--accent)">About AtlasOps</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-      <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:10px;padding:16px;backdrop-filter:blur(8px)">
-        <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">INFRASTRUCTURE</div>
-        <div style="font-size:12px;line-height:2.1;color:var(--text)">GKE Standard us-central1<br>Google Online Boutique (11 svc)<br>Prometheus + Grafana + Jaeger<br>Chaos Mesh (6 fault types)<br>Argo CD · Cloud SQL · PubSub</div>
+<div id="tab-about" class="tab-panel" style="padding:80px 40px 40px;overflow-y:auto">
+<div style="max-width:1060px;margin:0 auto;position:relative;z-index:2">
+
+  <!-- Hero headline -->
+  <div style="text-align:center;margin-bottom:48px">
+    <div style="font-size:11px;letter-spacing:4px;color:var(--textdim);text-transform:uppercase;margin-bottom:12px">AMD Developer Hackathon 2026</div>
+    <h1 style="font-size:32px;font-weight:900;letter-spacing:3px;color:var(--accent);text-shadow:0 0 40px rgba(0,212,255,0.4);margin-bottom:12px">ATLASOPS</h1>
+    <p style="font-size:14px;color:var(--textdim);max-width:600px;margin:0 auto;line-height:1.8">
+      The first multi-agent SRE platform trained end-to-end on real cloud failures.<br>
+      <span style="color:var(--text)">4 specialized AI agents. 20 real SRE tools. 1 AMD MI300X.</span>
+    </p>
+  </div>
+
+  <!-- The problem -->
+  <div style="background:rgba(255,69,96,0.04);border:1px solid rgba(255,69,96,0.2);border-radius:12px;padding:24px;margin-bottom:20px">
+    <div style="font-size:10px;letter-spacing:3px;color:var(--red);text-transform:uppercase;margin-bottom:12px">⚠ The Problem</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+      <div>
+        <div style="font-size:28px;font-weight:800;color:var(--red)">2:47 AM</div>
+        <div style="font-size:11px;color:var(--textdim);margin-top:4px">Average time a P1 alert fires. Your on-call engineer is asleep.</div>
       </div>
-      <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:10px;padding:16px;backdrop-filter:blur(8px)">
-        <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">AI / TRAINING</div>
-        <div style="font-size:12px;line-height:2.1;color:var(--text)">AMD MI300X (192 GB HBM3)<br>Qwen2.5-7B × 4 (QLoRA r=16)<br>Qwen2.5-72B (judge + adversarial)<br>SFT → Online GRPO + DAPO loss<br>Spaced-Rep Curriculum + Dense Rewards</div>
+      <div>
+        <div style="font-size:28px;font-weight:800;color:var(--yellow)">~25 min</div>
+        <div style="font-size:11px;color:var(--textdim);margin-top:4px">Average human MTTR for a cascade incident. Revenue bleeding the whole time.</div>
       </div>
-    </div>
-    <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:10px;padding:16px;backdrop-filter:blur(8px)">
-      <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);margin-bottom:10px">SAFETY GUARDRAILS</div>
-      <div style="font-size:11px;color:var(--textdim);line-height:2">
-        <span style="color:var(--red)">Approval Gate</span> (P0 manual / P1 window / P2-P3 auto) ·
-        <span style="color:var(--yellow)">Circuit Breaker</span> (50 calls/incident, 10 mutations/hr) ·
-        <span style="color:var(--accent)">Incident Correlator</span> (5-min dedup) ·
-        <span style="color:var(--green)">HMAC Audit Log</span> (hash-chained tamper-evident)
+      <div>
+        <div style="font-size:28px;font-weight:800;color:var(--accent)">$250B</div>
+        <div style="font-size:11px;color:var(--textdim);margin-top:4px">Global observability + SRE market. On-call burnout is a $250B problem.</div>
       </div>
     </div>
   </div>
+
+  <!-- The solution — agent pipeline -->
+  <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px">
+    <div style="font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:20px">🤖 The Solution — 4-Agent Pipeline</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;position:relative">
+      <!-- connector line -->
+      <div style="position:absolute;top:32px;left:12%;right:12%;height:2px;background:linear-gradient(90deg,var(--red),var(--accent2),var(--yellow),var(--green));opacity:0.4;z-index:0"></div>
+      <div style="text-align:center;position:relative;z-index:1;padding:0 8px">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,69,96,0.1);border:2px solid var(--red);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 0 20px rgba(255,69,96,0.2)">🔴</div>
+        <div style="font-size:11px;font-weight:800;color:var(--red);letter-spacing:1px;margin-bottom:6px">TRIAGE</div>
+        <div style="font-size:10px;color:var(--textdim);line-height:1.6">Acks alert<br>Assigns severity<br>Maps blast radius<br>4 tool calls max</div>
+      </div>
+      <div style="text-align:center;position:relative;z-index:1;padding:0 8px">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(123,97,255,0.1);border:2px solid var(--accent2);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 0 20px rgba(123,97,255,0.2)">🔍</div>
+        <div style="font-size:11px;font-weight:800;color:var(--accent2);letter-spacing:1px;margin-bottom:6px">DIAGNOSIS</div>
+        <div style="font-size:10px;color:var(--textdim);line-height:1.6">PromQL queries<br>Jaeger traces<br>kubectl logs<br>Root cause ID</div>
+      </div>
+      <div style="text-align:center;position:relative;z-index:1;padding:0 8px">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,183,3,0.1);border:2px solid var(--yellow);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 0 20px rgba(255,183,3,0.2)">🔧</div>
+        <div style="font-size:11px;font-weight:800;color:var(--yellow);letter-spacing:1px;margin-bottom:6px">REMEDIATION</div>
+        <div style="font-size:10px;color:var(--textdim);line-height:1.6">Argo CD rollback<br>kubectl scale<br>Alert silence<br>Prometheus verify</div>
+      </div>
+      <div style="text-align:center;position:relative;z-index:1;padding:0 8px">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,227,150,0.1);border:2px solid var(--green);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 0 20px rgba(0,227,150,0.2)">📣</div>
+        <div style="font-size:11px;font-weight:800;color:var(--green);letter-spacing:1px;margin-bottom:6px">COMMS</div>
+        <div style="font-size:10px;color:var(--textdim);line-height:1.6">Slack update<br>Postmortem draft<br>Status page<br>Action items</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3-column grid: infra + AI + tools -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">
+    <!-- Infrastructure -->
+    <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:20px">
+      <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);text-transform:uppercase;margin-bottom:14px">☁ Real Infrastructure</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${[
+          ['GKE Standard','us-central1, 3× e2-standard-4'],
+          ['Online Boutique','11 microservices (gRPC + Go + Python)'],
+          ['Prometheus','Real scraping, 2M+ time series'],
+          ['Jaeger + OTel','Distributed trace collection'],
+          ['Chaos Mesh','PodChaos · NetworkChaos · IOChaos · DNSChaos · TimeChaos · StressChaos'],
+          ['Argo CD','GitOps rollbacks'],
+          ['Cloud SQL','Postgres 15'],
+          ['Alertmanager','Webhook → AtlasOps'],
+        ].map(([k,v]) => `<div style="display:flex;gap:8px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0">▸</span><span><span style="color:var(--text);font-size:11px">${k}</span><span style="color:var(--textdim);font-size:10px;display:block">${v}</span></span></div>`).join('')}
+      </div>
+    </div>
+
+    <!-- AMD + AI -->
+    <div style="background:rgba(11,17,32,0.8);border:1px solid rgba(255,69,96,0.3);border-radius:12px;padding:20px">
+      <div style="font-size:10px;letter-spacing:2px;color:var(--red);text-transform:uppercase;margin-bottom:14px">⚡ AMD MI300X Training</div>
+      <div style="background:rgba(255,69,96,0.04);border:1px solid rgba(255,69,96,0.15);border-radius:8px;padding:12px;margin-bottom:14px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--red)">192 GB</div>
+        <div style="font-size:9px;color:var(--textdim);letter-spacing:2px">HBM3 VRAM</div>
+        <div style="font-size:10px;color:var(--textdim);margin-top:4px">5 Qwen models co-hosted simultaneously</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${[
+          ['Qwen2.5-7B × 4','One per agent role + QLoRA r=16'],
+          ['Qwen2.5-72B','LLM judge + adversarial designer'],
+          ['QLoRA SFT','4-bit quantization, TRL + PEFT'],
+          ['Online GRPO','DAPO loss, real GKE reward signal'],
+          ['Curriculum','Spaced rep [3,6,12,24,48h], mastery decay=0.85'],
+          ['Dense Rewards','Per-step + episode contract (70/30 blend)'],
+          ['ROCm 7.2','PyTorch + Hugging Face Optimum-AMD'],
+        ].map(([k,v]) => `<div style="display:flex;gap:8px;align-items:flex-start"><span style="color:var(--red);flex-shrink:0">▸</span><span><span style="color:var(--text);font-size:11px">${k}</span><span style="color:var(--textdim);font-size:10px;display:block">${v}</span></span></div>`).join('')}
+      </div>
+    </div>
+
+    <!-- 20 Tools -->
+    <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:20px">
+      <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);text-transform:uppercase;margin-bottom:14px">🛠 20 Real SRE Tools</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${[
+          ['kubectl','get · describe · logs · top · rollout · scale · exec'],
+          ['promql_query','Live Prometheus HTTP API'],
+          ['promql_query_range','Time-series range queries'],
+          ['jaeger_search','Find traces by service + duration'],
+          ['jaeger_get_trace','Full span chain by trace ID'],
+          ['argocd_rollback','GitOps rollback via REST API'],
+          ['argocd_list_apps','List all deployed applications'],
+          ['alertmanager_silence','Suppress flapping alerts'],
+          ['gcloud_logs_read','Cloud Logging structured logs'],
+          ['cloud_monitoring_query','GCP-native metrics API'],
+          ['slack_post_update','Incident channel notification'],
+          ['postmortem_draft','Auto-generated postmortem'],
+        ].map(([k,v]) => `<div style="display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;font-size:9px;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:10px;font-weight:600">${k}</span><span style="color:var(--textdim);font-size:9px;display:block">${v}</span></span></div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- Safety architecture -->
+  <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px">
+    <div style="font-size:10px;letter-spacing:3px;color:var(--textdim);text-transform:uppercase;margin-bottom:18px">🛡 Safety Architecture — No Agent Can Cause an Outage</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+      <div style="background:rgba(255,69,96,0.05);border:1px solid rgba(255,69,96,0.2);border-radius:8px;padding:14px">
+        <div style="font-size:13px;margin-bottom:8px">🚦</div>
+        <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:6px">Approval Gate</div>
+        <div style="font-size:10px;color:var(--textdim);line-height:1.7">P0 → human required<br>P1 → 60s auto window<br>P2/P3 → automatic<br>Token-based callbacks</div>
+      </div>
+      <div style="background:rgba(255,183,3,0.05);border:1px solid rgba(255,183,3,0.2);border-radius:8px;padding:14px">
+        <div style="font-size:13px;margin-bottom:8px">⚡</div>
+        <div style="font-size:11px;font-weight:700;color:var(--yellow);margin-bottom:6px">Circuit Breaker</div>
+        <div style="font-size:10px;color:var(--textdim);line-height:1.7">50 tool calls/incident<br>10 mutations/hour<br>3 consecutive failures → OPEN<br>Auto-reset on recovery</div>
+      </div>
+      <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:14px">
+        <div style="font-size:13px;margin-bottom:8px">🔗</div>
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px">Incident Correlator</div>
+        <div style="font-size:10px;color:var(--textdim);line-height:1.7">5-min dedup window<br>Prevents alert storms<br>Fingerprint matching<br>Active incident tracking</div>
+      </div>
+      <div style="background:rgba(0,227,150,0.05);border:1px solid rgba(0,227,150,0.2);border-radius:8px;padding:14px">
+        <div style="font-size:13px;margin-bottom:8px">📋</div>
+        <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px">HMAC Audit Log</div>
+        <div style="font-size:10px;color:var(--textdim);line-height:1.7">Hash-chained entries<br>Tamper-evident<br>Every tool call logged<br>Cryptographic integrity</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historical scenarios -->
+  <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px">
+    <div style="font-size:10px;letter-spacing:3px;color:var(--textdim);text-transform:uppercase;margin-bottom:18px">📖 31 Scenarios — Including 10 Named Historical Replays</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+      ${[
+        ['🌩','Cloudflare 2019','Regex CPU storm · 85% traffic down'],
+        ['🔄','GitHub 2018','DB failover loop · 24h incident'],
+        ['⚡','Discord 2022','Redis thundering herd'],
+        ['🌐','Datadog 2023','systemd-resolved failure'],
+        ['💬','Slack 2022','HTTP/2 stream exhaustion'],
+        ['📦','AWS S3 2017','Typo capacity command'],
+        ['🌍','Azure DNS 2019','Stale DNS cache poisoning'],
+        ['⚡','Fastly 2021','Bad VCL/Envoy filter'],
+        ['📡','Facebook BGP 2021','Control plane partition'],
+        ['💰','Knight Capital 2012','Partial deploy mismatch'],
+      ].map(([icon, name, desc]) => `
+        <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:18px;margin-bottom:6px">${icon}</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text);margin-bottom:3px">${name}</div>
+          <div style="font-size:9px;color:var(--textdim);line-height:1.4">${desc}</div>
+        </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- Links row -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
+    <a href="https://github.com/Harikishanth/AtlasOps" target="_blank" style="display:flex;align-items:center;gap:12px;background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:10px;padding:16px;text-decoration:none;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:24px">🐙</span>
+      <div><div style="font-size:12px;font-weight:700;color:var(--text)">GitHub Repository</div><div style="font-size:10px;color:var(--textdim)">Harikishanth/AtlasOps · MIT License</div></div>
+    </a>
+    <a href="http://136.119.60.129" target="_blank" style="display:flex;align-items:center;gap:12px;background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:10px;padding:16px;text-decoration:none;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--yellow)'" onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:24px">📊</span>
+      <div><div style="font-size:12px;font-weight:700;color:var(--text)">Live Grafana</div><div style="font-size:10px;color:var(--textdim)">Real GKE metrics · us-central1</div></div>
+    </a>
+    <a href="http://34.132.118.204" target="_blank" style="display:flex;align-items:center;gap:12px;background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:10px;padding:16px;text-decoration:none;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:24px">🛍</span>
+      <div><div style="font-size:12px;font-weight:700;color:var(--text)">Online Boutique</div><div style="font-size:10px;color:var(--textdim)">Live target application · GKE</div></div>
+    </a>
+  </div>
+
+  <!-- Footer credit -->
+  <div style="text-align:center;padding:20px 0;border-top:1px solid var(--border)">
+    <div style="font-size:11px;color:var(--textdim)">Built by <span style="color:var(--accent)">Hari Kishanth</span> · Team <span style="color:var(--accent)">Da Big Three</span> · St. Joseph's College of Engineering, Chennai</div>
+    <div style="font-size:10px;color:var(--textdim);margin-top:4px">AMD Developer Hackathon 2026 · lablab.ai · <span style="color:var(--red)">⚡ Powered by AMD MI300X 192GB HBM3</span></div>
+  </div>
+
+</div>
 </div>
 
 <script>
