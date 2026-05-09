@@ -104,7 +104,7 @@
 
   /* ── Main layout ── */
   .main {
-    padding-top: 52px; min-height: 100vh;
+    padding-top: 52px; height: 100vh; overflow: hidden;
     display: grid;
     grid-template-columns: 340px 1fr 360px;
     grid-template-rows: auto 1fr;
@@ -119,6 +119,7 @@
     position: relative; overflow: hidden;
     background: rgba(11,17,32,0.7);
     backdrop-filter: blur(8px);
+    min-height: 0;
   }
   .panel-header {
     padding: 14px 16px 12px;
@@ -340,7 +341,7 @@
   .mttr-value.alerting { color: var(--red); text-shadow: 0 0 20px rgba(255,69,96,0.6); animation: countPulse 1s ease-in-out infinite; }
 
   /* ── Agent timeline ── */
-  .timeline-panel { display: flex; flex-direction: column; background: rgba(11,17,32,0.7); }
+  .timeline-panel { display: flex; flex-direction: column; background: rgba(11,17,32,0.7); min-height: 0; overflow: hidden; }
   .timeline-body {
     flex: 1; overflow-y: auto; padding: 10px;
     display: flex; flex-direction: column; gap: 3px;
@@ -639,7 +640,7 @@
         <a href="#" id="grafana-link" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none;opacity:0.7">Grafana ↗</a>
       </div>
     </div>
-    <div class="grafana-wrap" id="grafana-wrap" style="flex:1;display:flex;flex-direction:column;padding:14px;gap:12px;background:var(--bg2);min-height:280px">
+    <div class="grafana-wrap" id="grafana-wrap" style="flex:1;display:flex;flex-direction:column;padding:14px;gap:12px;background:var(--bg2);min-height:0;overflow-y:auto">
       <!-- Metric cards row -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex-shrink:0">
         <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:8px;padding:12px">
