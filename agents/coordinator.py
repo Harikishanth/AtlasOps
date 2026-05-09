@@ -100,6 +100,37 @@ def load_prompt(role: str) -> str:
     return (PROMPTS_DIR / f"{role}.md").read_text(encoding="utf-8")
 
 
+def _extract_tool_calls_from_content(content: str) -> list[dict[str, Any]]:
+    """Fallback: parse tool calls from content for providers that don't use tool_calls array.
+
+    Handles two formats:
+    1. {"type":"function","name":"fn","parameters":{...}}
+    2. {"name":"fn","arguments":{...}}
+    """
+    if not content or "{" not in content:
+        return []
+    try:
+        start = content.index("{")
+        end = content.rindex("}") + 1
+        obj = json.loads(content[start:end])
+        fn_name = obj.get("name") or obj.get("function", {}).get("name")
+        if not fn_name:
+            return []
+        args = obj.get("parameters") or obj.get("arguments") or obj.get("function", {}).get("arguments") or {}
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                args = {}
+        return [{
+            "id": f"call_{fn_name}",
+            "type": "function",
+            "function": {"name": fn_name, "arguments": json.dumps(args)},
+        }]
+    except (ValueError, json.JSONDecodeError, KeyError):
+        return []
+
+
 async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10) -> dict[str, Any]:
     """Run a single agent with a tool-calling loop. Returns final JSON output."""
     system_prompt = load_prompt(role)
@@ -128,6 +159,11 @@ async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10)
             choice = r.json()["choices"][0]
             msg = choice["message"]
             messages.append(msg)
+
+            # Normalise tool calls — some providers (Fireworks/Llama) return
+            # function calls as JSON in content instead of the tool_calls array.
+            if not msg.get("tool_calls"):
+                msg["tool_calls"] = _extract_tool_calls_from_content(msg.get("content") or "")
 
             if not msg.get("tool_calls"):
                 conclusion = msg["content"] or ""
