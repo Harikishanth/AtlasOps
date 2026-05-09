@@ -12,6 +12,9 @@ Submission deadline: **May 10, 2026 — 7:00 PM UTC (12:30 AM IST May 11)**
 - **Argo CD:** `https://34.122.132.237`
 - **Cloud SQL:** `cloudsre-cart-db` (Postgres 15, `34.60.234.86`)
 - **PubSub topics:** `cloudsre-checkout-events`, `cloudsre-alerts`
+- **Prometheus:** `http://34.31.150.33:9090` (LoadBalancer — exposed May 9)
+- **Alertmanager:** `http://34.135.158.165:9093` (LoadBalancer — exposed May 9)
+- **Jaeger:** `http://104.198.218.251:16686` (LoadBalancer `jaeger-ui` service — exposed May 9)
 
 ## kubectl / gcloud
 ```powershell

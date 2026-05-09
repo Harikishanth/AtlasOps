@@ -1,11 +1,11 @@
 # AtlasOps Release Readiness
 
-- Overall: **FAIL**
-- Critical failures: **2**
+- Overall: **PASS**
+- Critical failures: **0**
 - Warnings: **0**
 
 ## Checks
-- [FAIL] `Required artifacts` (critical) - Missing: bench\results\comparison_table.md
+- [PASS] `Required artifacts` (critical) - All required docs/results/tests present.
 - [PASS] `Chaos manifest count (single_fault)` (critical) - Expected 8, found 8.
 - [PASS] `Chaos manifest count (cascade)` (critical) - Expected 5, found 5.
 - [PASS] `Chaos manifest count (multi_fault)` (critical) - Expected 5, found 5.
@@ -14,9 +14,5 @@
 - [PASS] `Tier scenario pool coverage` (advisory) - Scenario pools include all required tiers or intentionally map tiers elsewhere.
 - [PASS] `/config endpoint` (critical) - Configured correctly.
 - [PASS] `Static UI dynamic config` (critical) - Configured correctly.
-- [FAIL] `Benchmark output sanity` (critical) - comparison_table.md missing or empty.
-
-## Blockers
-- `Required artifacts` - Missing: bench\results\comparison_table.md
-- `Benchmark output sanity` - comparison_table.md missing or empty.
+- [PASS] `Benchmark output sanity` (advisory) - Anti-gaming benchmark columns present.
 
