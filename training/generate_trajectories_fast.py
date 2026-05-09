@@ -218,6 +218,9 @@ async def main():
                 run_num += 1
                 log.info("[%d/%d] %s (repeat %d)", run_num, total_runs, sid, repeat + 1)
                 try:
+                    # Reset circuit breaker between scenarios so training runs don't block each other
+                    from agents.circuit_breaker import circuit_breaker
+                    circuit_breaker.reset()
                     incident, elapsed = await run_scenario(sid)
                     examples = trajectory_to_sft(sid, incident, elapsed)
                     for ex in examples:
