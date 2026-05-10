@@ -6,7 +6,15 @@ colorTo: blue
 sdk: docker
 app_port: 7860
 pinned: true
-short_description: 4 AI agents responding to real GKE incidents
+short_description: 4 AI agents responding to real GKE incidents on AMD MI300X
+tags:
+  - agents
+  - multi-agent
+  - reinforcement-learning
+  - amd
+  - rocm
+  - sre
+  - kubernetes
 ---
 
 # AtlasOps — Can 4 AI agents replace an on-call SRE team?
