@@ -894,8 +894,8 @@
 </div>
 
 <!-- ── About Tab ── -->
-<div id="tab-about" class="tab-panel" style="padding:80px 40px 40px;overflow-y:auto">
-<div style="max-width:1060px;margin:0 auto;position:relative;z-index:2">
+<div id="tab-about" class="tab-panel" style="padding:40px 60px 40px;overflow-y:auto">
+<div style="max-width:1400px;margin:0 auto;position:relative;z-index:2">
 
   <!-- Hero headline -->
   <div style="text-align:center;margin-bottom:48px">
@@ -956,63 +956,58 @@
   </div>
 
   <!-- 3-column grid: infra + AI + tools -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px">
+
     <!-- Infrastructure -->
-    <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:20px">
-      <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);text-transform:uppercase;margin-bottom:14px">☁ Real Infrastructure</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${[
-          ['GKE Standard','us-central1, 3× e2-standard-4'],
-          ['Online Boutique','11 microservices (gRPC + Go + Python)'],
-          ['Prometheus','Real scraping, 2M+ time series'],
-          ['Jaeger + OTel','Distributed trace collection'],
-          ['Chaos Mesh','PodChaos · NetworkChaos · IOChaos · DNSChaos · TimeChaos · StressChaos'],
-          ['Argo CD','GitOps rollbacks'],
-          ['Cloud SQL','Postgres 15'],
-          ['Alertmanager','Webhook → AtlasOps'],
-        ].map(([k,v]) => `<div style="display:flex;gap:8px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0">▸</span><span><span style="color:var(--text);font-size:11px">${k}</span><span style="color:var(--textdim);font-size:10px;display:block">${v}</span></span></div>`).join('')}
+    <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:22px">
+      <div style="font-size:11px;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-bottom:16px;font-weight:700">☁ Real Infrastructure</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">GKE Standard</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">us-central1, 3× e2-standard-4</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Online Boutique</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">11 microservices — gRPC, Go, Python, Node</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Prometheus + Grafana</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Real scraping, 2M+ time series</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Jaeger + OTel</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Distributed trace collection</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Chaos Mesh</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">PodChaos · NetworkChaos · IOChaos · DNSChaos · TimeChaos · StressChaos</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Argo CD</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">GitOps rollbacks — real execution</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Cloud SQL</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Postgres 15 — replaces SQLite in cartservice</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Alertmanager</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Webhook → AtlasOps coordinator</span></span></div>
       </div>
     </div>
 
     <!-- AMD + AI -->
-    <div style="background:rgba(11,17,32,0.8);border:1px solid rgba(255,69,96,0.3);border-radius:12px;padding:20px">
-      <div style="font-size:10px;letter-spacing:2px;color:var(--red);text-transform:uppercase;margin-bottom:14px">⚡ AMD MI300X Training</div>
-      <div style="background:rgba(255,69,96,0.04);border:1px solid rgba(255,69,96,0.15);border-radius:8px;padding:12px;margin-bottom:14px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--red)">192 GB</div>
-        <div style="font-size:9px;color:var(--textdim);letter-spacing:2px">HBM3 VRAM</div>
-        <div style="font-size:10px;color:var(--textdim);margin-top:4px">5 Qwen models co-hosted simultaneously</div>
+    <div style="background:rgba(11,17,32,0.8);border:1px solid rgba(255,69,96,0.3);border-radius:12px;padding:22px">
+      <div style="font-size:11px;letter-spacing:2px;color:var(--red);text-transform:uppercase;margin-bottom:16px;font-weight:700">⚡ AMD MI300X Training</div>
+      <div style="background:rgba(255,69,96,0.04);border:1px solid rgba(255,69,96,0.15);border-radius:8px;padding:14px;margin-bottom:16px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--red)">192 GB</div>
+        <div style="font-size:10px;color:var(--textdim);letter-spacing:2px;margin-top:2px">HBM3 VRAM</div>
+        <div style="font-size:11px;color:var(--textdim);margin-top:6px">5 Qwen models co-hosted simultaneously</div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${[
-          ['Qwen2.5-7B × 4','One per agent role + QLoRA r=16'],
-          ['Qwen2.5-72B','LLM judge + adversarial designer'],
-          ['QLoRA SFT','4-bit quantization, TRL + PEFT'],
-          ['Online GRPO','DAPO loss, real GKE reward signal'],
-          ['Curriculum','Spaced rep [3,6,12,24,48h], mastery decay=0.85'],
-          ['Dense Rewards','Per-step + episode contract (70/30 blend)'],
-          ['ROCm 7.2','PyTorch + Hugging Face Optimum-AMD'],
-        ].map(([k,v]) => `<div style="display:flex;gap:8px;align-items:flex-start"><span style="color:var(--red);flex-shrink:0">▸</span><span><span style="color:var(--text);font-size:11px">${k}</span><span style="color:var(--textdim);font-size:10px;display:block">${v}</span></span></div>`).join('')}
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--red);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Qwen2.5-7B × 4</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">One per agent role + QLoRA LoRA r=16</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--red);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Qwen2.5-72B</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">LLM judge + adversarial scenario designer</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--red);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">QLoRA SFT</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">4-bit NF4 quantization, TRL + PEFT</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--red);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Online GRPO</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">DAPO loss — real GKE rollouts per step</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--red);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Curriculum</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Spaced rep [3,6,12,24,48h], mastery decay=0.85</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--red);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">Dense Rewards</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Per-step + episode contract (70/30 blend)</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--red);flex-shrink:0;margin-top:2px">▸</span><span><span style="color:var(--text);font-size:13px;font-weight:600">ROCm 7.2</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">PyTorch + Hugging Face Optimum-AMD</span></span></div>
       </div>
     </div>
 
     <!-- 20 Tools -->
-    <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:20px">
-      <div style="font-size:10px;letter-spacing:2px;color:var(--textdim);text-transform:uppercase;margin-bottom:14px">🛠 20 Real SRE Tools</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${[
-          ['kubectl','get · describe · logs · top · rollout · scale · exec'],
-          ['promql_query','Live Prometheus HTTP API'],
-          ['promql_query_range','Time-series range queries'],
-          ['jaeger_search','Find traces by service + duration'],
-          ['jaeger_get_trace','Full span chain by trace ID'],
-          ['argocd_rollback','GitOps rollback via REST API'],
-          ['argocd_list_apps','List all deployed applications'],
-          ['alertmanager_silence','Suppress flapping alerts'],
-          ['gcloud_logs_read','Cloud Logging structured logs'],
-          ['cloud_monitoring_query','GCP-native metrics API'],
-          ['slack_post_update','Incident channel notification'],
-          ['postmortem_draft','Auto-generated postmortem'],
-        ].map(([k,v]) => `<div style="display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;font-size:9px;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:10px;font-weight:600">${k}</span><span style="color:var(--textdim);font-size:9px;display:block">${v}</span></span></div>`).join('')}
+    <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:22px">
+      <div style="font-size:11px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:16px;font-weight:700">🛠 20 Real SRE Tools</div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">kubectl</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">get · describe · logs · top · rollout · scale · exec</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">promql_query</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Live Prometheus HTTP API</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">promql_query_range</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Time-series range queries</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">jaeger_search</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Find traces by service + duration</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">jaeger_get_trace</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Full span chain by trace ID</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">argocd_rollback</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">GitOps rollback via REST API</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">argocd_list_apps</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">List all deployed applications</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">alertmanager_silence</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Suppress flapping alerts via API</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">gcloud_logs_read</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Cloud Logging structured logs</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">cloud_monitoring_query</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">GCP-native metrics API</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">slack_post_update</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Incident channel notification</span></span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">⬡</span><span><span style="color:var(--accent);font-size:13px;font-weight:600">postmortem_draft</span><span style="color:var(--textdim);font-size:11px;display:block;margin-top:1px">Auto-generated Cloudflare-quality postmortem</span></span></div>
       </div>
     </div>
   </div>
@@ -1046,25 +1041,58 @@
 
   <!-- Historical scenarios -->
   <div style="background:rgba(11,17,32,0.8);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px">
-    <div style="font-size:10px;letter-spacing:3px;color:var(--textdim);text-transform:uppercase;margin-bottom:18px">📖 31 Scenarios — Including 10 Named Historical Replays</div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
-      ${[
-        ['🌩','Cloudflare 2019','Regex CPU storm · 85% traffic down'],
-        ['🔄','GitHub 2018','DB failover loop · 24h incident'],
-        ['⚡','Discord 2022','Redis thundering herd'],
-        ['🌐','Datadog 2023','systemd-resolved failure'],
-        ['💬','Slack 2022','HTTP/2 stream exhaustion'],
-        ['📦','AWS S3 2017','Typo capacity command'],
-        ['🌍','Azure DNS 2019','Stale DNS cache poisoning'],
-        ['⚡','Fastly 2021','Bad VCL/Envoy filter'],
-        ['📡','Facebook BGP 2021','Control plane partition'],
-        ['💰','Knight Capital 2012','Partial deploy mismatch'],
-      ].map(([icon, name, desc]) => `
-        <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:18px;margin-bottom:6px">${icon}</div>
-          <div style="font-size:10px;font-weight:700;color:var(--text);margin-bottom:3px">${name}</div>
-          <div style="font-size:9px;color:var(--textdim);line-height:1.4">${desc}</div>
-        </div>`).join('')}
+    <div style="font-size:11px;letter-spacing:3px;color:var(--textdim);text-transform:uppercase;margin-bottom:18px;font-weight:700">📖 31 Scenarios — Including 10 Named Historical Replays</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">🌩</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Cloudflare 2019</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">Regex CPU storm · 85% traffic down</div>
+      </div>
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">🔄</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">GitHub 2018</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">DB failover loop · 24h incident</div>
+      </div>
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">⚡</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Discord 2022</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">Redis thundering herd</div>
+      </div>
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">🌐</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Datadog 2023</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">systemd-resolved failure</div>
+      </div>
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">💬</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Slack 2022</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">HTTP/2 stream exhaustion</div>
+      </div>
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">📦</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">AWS S3 2017</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">Typo capacity command</div>
+      </div>
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">🌍</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Azure DNS 2019</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">Stale DNS cache poisoning</div>
+      </div>
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">🔌</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Fastly 2021</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">Bad VCL/Envoy filter</div>
+      </div>
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">📡</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Facebook BGP 2021</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">Control plane partition</div>
+      </div>
+      <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:8px">💰</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Knight Capital 2012</div>
+        <div style="font-size:11px;color:var(--textdim);line-height:1.5">Partial deploy mismatch</div>
+      </div>
     </div>
   </div>
 
