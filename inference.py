@@ -20,28 +20,35 @@ from pathlib import Path
 
 
 def load_local_model(model_path: str):
-    """Load a LoRA checkpoint locally with Optimum-AMD BetterTransformer optimization.
+    """Load a LoRA checkpoint for local inference with Optimum-AMD optimizations.
 
-    Used when BACKEND=local (no vLLM server). Applies AMD-specific kernel
-    optimizations via Hugging Face Optimum-AMD on top of the base HF model.
+    Used when BACKEND=local (no vLLM server). Uses Hugging Face Optimum-AMD
+    to load and optimize the model for AMD ROCm hardware, then exposes it for
+    inference. BetterTransformer is intentionally not used — it has known ROCm
+    compatibility issues; optimum-amd's AutoModelForCausalLM handles AMD-native
+    kernel selection instead.
     """
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoTokenizer
     import torch
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-    )
-
     try:
-        from optimum.bettertransformer import BetterTransformer
-        model = BetterTransformer.transform(model)
-        print("[optimum-amd] BetterTransformer applied — AMD kernel optimizations active")
-    except (ImportError, Exception) as e:
-        print(f"[optimum-amd] not available ({e}) — using base HF model")
+        from optimum.amd import AutoModelForCausalLM as OptimumAMDModel
+        model = OptimumAMDModel.from_pretrained(
+            model_path,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+        print("[optimum-amd] model loaded with AMD-native optimizations")
+    except (ImportError, Exception):
+        from transformers import AutoModelForCausalLM
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+        print("[optimum-amd] not available — loaded with base transformers")
 
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
     model.eval()
     return model, tokenizer
 
