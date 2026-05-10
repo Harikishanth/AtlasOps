@@ -151,3 +151,4 @@ Optional: **`SLACK_WEBHOOK_URL`** for Slack in parallel; both can be set.
    Real GKE + real metrics; four agents; **human approval** (UI buttons + Discord notice before remediation); MI300X for **SFT + online GRPO**; skip-kubectl only for **fault inject**, agents still use **live tools** elsewhere.
 
 6. **GitHub + slides** — `README` / **`docs/slides.md`** links match the Space you submit; export PDF from Marp if required.
+
