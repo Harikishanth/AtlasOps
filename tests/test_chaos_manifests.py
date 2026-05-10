@@ -60,6 +60,13 @@ def test_all_tiers_present():
     assert "cascade" in tiers
     assert "named_replays" in tiers
     assert "multi_fault" in tiers
+    assert "adversarial" in tiers
+
+
+def test_adversarial_templates_present():
+    adv_dir = MANIFESTS_DIR / "adversarial"
+    templates = list(adv_dir.glob("adv-*.yaml"))
+    assert len(templates) >= 1, "Frozen adv-*.yaml templates should exist for UI + curriculum"
 
 
 def test_single_fault_count():
@@ -75,3 +82,8 @@ def test_cascade_count():
 def test_named_replays_count():
     nr = list((MANIFESTS_DIR / "named_replays").glob("*.yaml"))
     assert len(nr) == 10, f"Expected 10 named replays, got {len(nr)}"
+
+
+def test_multi_fault_count():
+    mf = list((MANIFESTS_DIR / "multi_fault").glob("*.yaml"))
+    assert len(mf) == 5, f"Expected 5 multi-fault scenarios, got {len(mf)}"

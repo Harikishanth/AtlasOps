@@ -570,6 +570,20 @@ def _manual_remediation_record(incident_id: str, triage: dict[str, Any], diagnos
     }
 
 
+def _live_judge_requested() -> bool:
+    """Post-incident scoring with the external judge (typically 72B on HF or vLLM).
+
+    Default: ON when ATLASOPS_USE_HF_INFERENCE=1 so Space demos exercise both models.
+    Opt out: ATLASOPS_LIVE_JUDGE=0
+    """
+    flag = os.getenv("ATLASOPS_LIVE_JUDGE", "").strip().lower()
+    if flag in ("0", "false", "no", "off"):
+        return False
+    if flag in ("1", "true", "yes", "on"):
+        return True
+    return os.getenv("ATLASOPS_USE_HF_INFERENCE", "").strip().lower() in ("1", "true", "yes")
+
+
 async def handle_incident(alert: dict[str, Any], incident_id: str | None = None) -> dict[str, Any]:
     """Run the full agent chain for one incident."""
     incident_id = incident_id or f"inc-{int(time.time())}-{uuid.uuid4().hex[:6]}"
@@ -675,6 +689,31 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
         (TRAJECTORIES_DIR / f"{incident_id}.json").write_text(
             json.dumps(full_record, indent=2), encoding="utf-8",
         )
+        if _live_judge_requested():
+            from agents.judge import infer_tier_from_alert, judge_trajectory
+
+            tier = infer_tier_from_alert(alert)
+            jm = os.getenv("JUDGE_MODEL", "judge-model")
+            thought_emit("comms", "tool_call", f"Scoring incident with external judge ({tier} rubric)…", tool="judge")
+            try:
+                scores = await judge_trajectory(full_record, tier=tier)
+                ov = float(scores.get("overall", 0.0))
+                crit = str(scores.get("critique", ""))[:400]
+                thought_emit(
+                    "comms",
+                    "tool_result",
+                    f"{jm} — overall {ov:.2f}. {crit}".strip(),
+                    tool="judge_trajectory",
+                )
+            except Exception as e:
+                log.warning("live judge failed: %s", e)
+                thought_emit(
+                    "comms",
+                    "tool_result",
+                    f"Judge request failed ({type(e).__name__}: {e}). Scores skipped.",
+                    tool="judge_trajectory",
+                )
+
         # Derive resolved from actual remediation outcome, not just non-rejection.
         # "skipped_execution" (P0 manual), "approval_rejected", "approval_timeout"
         # are all non-resolved states. Only explicit "resolved" outcome counts.
@@ -749,7 +788,16 @@ async def get_thoughts():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "vllm": VLLM_BASE, "model": MODEL_NAME}
+    ju = os.getenv("JUDGE_URL", "").rstrip("/")
+    return {
+        "status": "ok",
+        "vllm": VLLM_BASE,
+        "model": MODEL_NAME,
+        "judge_url": ju,
+        "judge_model": os.getenv("JUDGE_MODEL", ""),
+        "live_judge": _live_judge_requested(),
+        "hf_inference_pack": os.getenv("ATLASOPS_USE_HF_INFERENCE", ""),
+    }
 
 
 @app.get("/metrics")

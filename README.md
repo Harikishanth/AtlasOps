@@ -213,6 +213,12 @@ pip install -e ".[dev]"
 python app.py          # http://localhost:7860
 ```
 
+### Hugging Face Space (use your trained 7B + judge on Router)
+
+Set Space secrets: **`HF_TOKEN`**, **`ATLASOPS_USE_HF_INFERENCE=1`**, **`AGENT_MODEL`**, **`JUDGE_MODEL`**.  
+Paste your merged GRPO Hub id as `AGENT_MODEL` (merge locally with `training/merge_lora_for_hub.py` under `.[train]`).  
+Full checklist: [docs/HF_SPACE_SETUP.md](docs/HF_SPACE_SETUP.md).
+
 ### 3. Inject a chaos scenario
 ```bash
 make chaos SCENARIO=single_fault/sf-001          # pod-kill on cartservice
