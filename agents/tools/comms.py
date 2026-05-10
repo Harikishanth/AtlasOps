@@ -1,6 +1,7 @@
 """Communication tool wrappers — Slack updates + postmortem generation."""
 
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,6 +9,8 @@ from typing import Any
 
 import requests
 from jinja2 import Template
+
+log = logging.getLogger("atlasops.comms")
 
 
 SLACK_WEBHOOK = os.getenv("SLACK_WEBHOOK_URL", "")
@@ -38,27 +41,47 @@ def _build_slack_payload(channel: str, severity: str, title: str,
     }
 
 
+def _trunc(s: str, max_len: int) -> str:
+    s = (s or "").strip()
+    return s if len(s) <= max_len else s[: max_len - 1] + "…"
+
+
 def _post_to_discord(slack_payload: dict) -> None:
     """Convert Slack payload to Discord embed and POST."""
     att = slack_payload["attachments"][0]
-    color_int = int(_SEV_COLOR_HEX.get(
-        att["title"].split("]")[0].lstrip("["), "888888"), 16)
-    fields = [
-        {"name": f["title"], "value": f["value"], "inline": False}
-        for f in att.get("fields", []) if f.get("value")
-    ]
+    raw_title = att.get("title") or "[P3] Incident"
+    sev_key = raw_title.split("]")[0].lstrip("[").strip() if "]" in raw_title else "P3"
+    try:
+        color_int = int(_SEV_COLOR_HEX.get(sev_key, "888888"), 16)
+    except ValueError:
+        color_int = int("888888", 16)
+    fields_raw = []
+    for f in att.get("fields", []) or []:
+        if not f.get("value"):
+            continue
+        fields_raw.append({
+            "name": _trunc(str(f.get("title", "")), 256),
+            "value": _trunc(str(f["value"]), 1024),
+            "inline": False,
+        })
     discord_payload = {
-        "username": slack_payload.get("username", "atlasops-bot"),
+        "username": _trunc(slack_payload.get("username", "atlasops-bot"), 80),
         "embeds": [{
-            "title": att["title"],
-            "description": att.get("text", ""),
+            "title": _trunc(raw_title, 256),
+            "description": _trunc(att.get("text", ""), 4000),
             "color": color_int,
-            "fields": fields,
+            "fields": fields_raw[:25],
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "footer": {"text": "AtlasOps · AMD MI300X"},
         }],
     }
-    requests.post(DISCORD_WEBHOOK, json=discord_payload, timeout=10).raise_for_status()
+    r = requests.post(DISCORD_WEBHOOK, json=discord_payload, timeout=15)
+    try:
+        r.raise_for_status()
+    except requests.RequestException:
+        detail = getattr(r, "text", "")[:400]
+        log.warning("Discord webhook HTTP %s: %s", r.status_code, detail or r.reason)
+        raise
 
 
 def slack_post_update(channel: str, severity: str, title: str, summary: str,
@@ -93,8 +116,11 @@ def slack_post_update(channel: str, severity: str, title: str, summary: str,
         try:
             _post_to_discord(payload)
             modes.append("discord")
+            log.info("Discord embed delivered for [%s]", (payload["attachments"][0].get("title") or "")[:80])
         except requests.RequestException as e:
-            errors.append(f"discord: {e}")
+            err = f"discord: {e}"
+            errors.append(err)
+            log.warning(err)
 
     return {
         "success": True,

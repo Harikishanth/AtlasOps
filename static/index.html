@@ -1808,6 +1808,8 @@ async function injectChaos(el, scenarioId, name) {
       const tb = document.getElementById('timeline-body');
       tb.innerHTML = `<div class="empty-state" style="min-height:140px;padding:18px"><div class="icon">🤖</div><p>Incident pipeline started — streaming real agent steps here.</p><p style="font-size:10px;color:var(--textdim);margin-top:10px;line-height:1.6">First message appears when triage calls the LLM. If nothing shows for ~1–2 minutes, inference is not reachable from this host (see yellow notice).</p></div>`;
       startThoughtStream();
+      topologyScenarioLock = true;
+      applyDemoFaults(name);
       _armAgentStallWarning(name);
     } else {
       document.getElementById('scenario-status').textContent = 'UI preview (offline)';
@@ -1815,11 +1817,13 @@ async function injectChaos(el, scenarioId, name) {
     }
   } catch(e) {
     document.getElementById('scenario-status').textContent = 'UI preview (offline)';
+    topologyScenarioLock = true;
     runDemoMode(name);
   }
 }
 
 async function resetChaos() {
+  topologyScenarioLock = false;
   _clearAgentStallTimer();
   if (activeScenarioBtn) { activeScenarioBtn.classList.remove('firing'); activeScenarioBtn = null; }
   clearInterval(mttrTimer);
@@ -1902,10 +1906,12 @@ function addThought(thought) {
   body.scrollTop = body.scrollHeight;
 
   if (thought.phase === 'conclusion' && thought.role === 'comms') {
+    topologyScenarioLock = false;
     resolveIncidentCard();
     stopMTTR(true);
     document.getElementById('agent-status').textContent = '✓ Resolved';
     cascadeServicesHealthy();
+    fetchClusterHealth();
     if (document.getElementById('scenario-status').textContent === 'UI preview (offline)') {
       const inc = document.getElementById('active-incident');
       _injectDemoSlackPost(inc?.querySelector('.incident-title')?.textContent || 'Incident');
@@ -1974,6 +1980,7 @@ const DEMO_FAULTS = {
 };
 
 function runDemoMode(scenarioName) {
+  topologyScenarioLock = true;
   const demoThoughts = [
     {role:'triage',      phase:'tool_call',   thought:'Checking CPU/memory pressure across all pods…', tool:'kubectl_top_pods'},
     {role:'triage',      phase:'tool_result', thought:'frontend pods: 1999m/2000m CPU — saturated.', tool:'kubectl_top_pods'},
@@ -1990,7 +1997,7 @@ function runDemoMode(scenarioName) {
     {role:'remediation', phase:'tool_call',   thought:'Verifying: rate(http_requests_total{code=~"5.."}[1m])', tool:'promql_query'},
     {role:'remediation', phase:'tool_result', thought:'Error rate: 0.2% — below 1% threshold. ✓', tool:'promql_query'},
     {role:'remediation', phase:'conclusion',  thought:'Resolved in 187s. Handing to Comms.'},
-    {role:'comms',       phase:'tool_call',   thought:'Posting [P1 RESOLVED] to Slack…', tool:'slack_post_update'},
+    {role:'comms',       phase:'tool_call',   thought:'Posting [P1 RESOLVED] to Discord / Slack webhooks…', tool:'slack_post_update'},
     {role:'comms',       phase:'tool_call',   thought:'Drafting postmortem — building timeline from cluster events…', tool:'postmortem_draft'},
     {role:'comms',       phase:'conclusion',  thought:'Postmortem saved. Incident closed. MTTR: 4m 12s.'},
   ];
@@ -2029,6 +2036,8 @@ const SVC_EDGES = {
   'emailservice':           ['edge-chk-email'],
 };
 let _topologyTimer = null;
+/** When true, topology shows scenario fault map; live /cluster/health polling does not overwrite (HF Space skip-kubectl demos look all-green). */
+let topologyScenarioLock = false;
 
 function _applyServiceState(svc, status) {
   const node = document.getElementById('svc-' + svc);
@@ -2066,6 +2075,7 @@ function applyDemoFaults(scenarioName) {
 }
 
 async function fetchClusterHealth() {
+  if (topologyScenarioLock) return;
   try {
     const r = await fetch(`${COORDINATOR}/cluster/health`, {signal: AbortSignal.timeout(5000)});
     if (!r.ok) return;
