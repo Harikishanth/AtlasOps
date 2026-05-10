@@ -1234,16 +1234,38 @@ async function refreshPrometheusMetrics() {
       _drawSparkline('spark-cpu', _sparkData.cpu, '#7b61ff', 'rgba(123,97,255,0.15)');
     }
 
+    const live = d.rps !== null || d.cpu !== null;
     const promStatus = document.getElementById('prom-status');
     if (promStatus) {
-      const live = d.rps !== null || d.cpu !== null;
-      promStatus.textContent = live ? '● Prometheus live' : '○ Prometheus unreachable';
+      promStatus.textContent = live ? '● metrics live' : '○ metrics offline';
       promStatus.style.color = live ? 'var(--green)' : 'var(--textdim)';
     }
+    // If all metrics null, replace "connecting…" canvases with explicit offline state
+    if (!live) { _drawOfflineSparkline('spark-rps'); _drawOfflineSparkline('spark-cpu'); }
   } catch {
     const promStatus = document.getElementById('prom-status');
     if (promStatus) { promStatus.textContent = '○ metrics offline'; promStatus.style.color = 'var(--textdim)'; }
+    _drawOfflineSparkline('spark-rps'); _drawOfflineSparkline('spark-cpu');
   }
+}
+
+function _drawOfflineSparkline(id) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const W = canvas.offsetWidth || canvas.width || 200;
+  const H = canvas.offsetHeight || canvas.height || 80;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.setLineDash([4, 6]);
+  ctx.strokeStyle = 'rgba(74,90,120,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, H * 0.5); ctx.lineTo(W, H * 0.5); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(74,90,120,0.5)';
+  ctx.font = `${Math.max(10, H * 0.16)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText('metrics offline — set PROMETHEUS_URL in Space secrets', W / 2, H * 0.45);
 }
 
 // Also fetch alert count from Alertmanager
