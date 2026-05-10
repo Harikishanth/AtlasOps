@@ -198,9 +198,9 @@ async def proxy_metrics():
     if not prom:
         return JSONResponse(results)
     queries = {
-        "error_rate": 'sum(rate(http_requests_total{status=~"5.."}[2m])) or vector(0)',
+        "error_rate": 'sum(rate(apiserver_request_total{code=~"5.."}[2m])) or vector(0)',
         "cpu":        'sum(rate(container_cpu_usage_seconds_total{namespace="default"}[2m])) or vector(0)',
-        "rps":        'sum(rate(http_requests_total[2m])) or vector(0)',
+        "rps":        'sum(rate(apiserver_request_total[2m])) or vector(0)',
     }
     try:
         async with _httpx.AsyncClient(timeout=6) as client:
