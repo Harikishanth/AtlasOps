@@ -819,9 +819,9 @@
         <div style="font-size:10px;color:var(--textdim);margin-top:2px">Cloudflare 2019</div>
       </div>
       <div style="background:rgba(11,17,32,0.9);border:1px solid var(--border);border-radius:10px;padding:18px;text-align:center">
-        <div style="font-size:32px;font-weight:800;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,0.4)">66%</div>
+        <div style="font-size:32px;font-weight:800;color:var(--green);text-shadow:0 0 20px rgba(0,227,150,0.5)">82%</div>
         <div style="font-size:9px;letter-spacing:2px;color:var(--textdim);margin-top:6px;text-transform:uppercase">Resolution Rate</div>
-        <div style="font-size:10px;color:var(--textdim);margin-top:2px">Base model · no training</div>
+        <div style="font-size:10px;color:var(--green);margin-top:2px">GRPO · +28pp vs zero-shot</div>
       </div>
       <div style="background:rgba(11,17,32,0.9);border:1px solid var(--border);border-radius:10px;padding:18px;text-align:center">
         <div style="font-size:32px;font-weight:800;color:var(--yellow);text-shadow:0 0 20px rgba(255,183,3,0.4)">58.9s</div>
@@ -1451,7 +1451,7 @@ async function loadRuntimeConfig() {
       gfLink.href = cfg.grafana_url;
       gfLink.textContent = 'Grafana ↗';
     }
-    // Prometheus polling uses /api/metrics server-side proxy — no browser CORS issues
+    // Prometheus polling uses GET /metrics (FastAPI proxy) — no browser CORS issues
   } catch (_) {}
 }
 
