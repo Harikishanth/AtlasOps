@@ -62,7 +62,7 @@ $helm    = "C:\Users\NSEIT\AppData\Local\Microsoft\WinGet\Packages\Helm.Helm_Mic
 
 ## Submission Checklist
 - [ ] Public GitHub repo (`atlasops`)
-- [ ] HF Space in AMD org (`huggingface.co/lablab-ai-amd-developer-hackathon`)
+- [ ] HF Space in AMD org (`huggingface.co/spaces/lablab-ai-amd-developer-hackathon/atlas-ops` — slug **`atlas-ops`**, not `atlasops`; see `docs/HF_SPACE_SETUP.md`)
 - [ ] Demo video ≤5 min MP4
 - [ ] Slide deck PDF
 - [ ] Cover image 16:9

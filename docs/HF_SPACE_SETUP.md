@@ -1,5 +1,29 @@
 # Hugging Face Spaces — wired 7B agents + 72B judge
 
+## Hackathon Space URL (avoid 404)
+
+The LabLab org Space slug uses a **hyphen**: **`atlas-ops`**, not `atlasops`.
+
+| What | URL |
+|------|-----|
+| Space repo (clone / git push) | `https://huggingface.co/spaces/lablab-ai-amd-developer-hackathon/atlas-ops` |
+| Embedded app (typical) | `https://lablab-ai-amd-developer-hackathon-atlas-ops.hf.space` |
+| Health check | Same host as app + `/health` (not the repo `.git` URL) |
+
+If you **duplicate or rename** the Space, replace `atlas-ops` everywhere below with your actual slug.
+
+**Git remote example**
+
+```bash
+git remote remove lablab 2>/dev/null
+git remote add lablab https://huggingface.co/spaces/lablab-ai-amd-developer-hackathon/atlas-ops
+git push lablab main
+```
+
+**Secrets:** set **`ATLASOPS_PUBLIC_BASE_URL`** to the **app** URL (no trailing slash), e.g. `https://lablab-ai-amd-developer-hackathon-atlas-ops.hf.space`, so approval / Discord hints use the Space the judges open — not localhost and not an old slug.
+
+---
+
 AtlasOps speaks **two** OpenAI-compatible HTTP endpoints:
 
 | Role | Env vars | Typical model id |
@@ -102,3 +126,28 @@ AtlasOps does **not** use a Discord “bot” that shows online in the member li
 3. A message is sent only when the **comms** agent runs the `slack_post_update` tool during a **real** incident (not the browser-only UI preview). If the agent chain is stuck before comms (e.g. LLM unreachable), Discord stays empty — fix `VLLM_BASE` / HF inference first.
 
 Optional: **`SLACK_WEBHOOK_URL`** for Slack in parallel; both can be set.
+
+---
+
+## Final hour — submission checklist (do in order)
+
+1. **Right Space URL** — Use **`lablab-ai-amd-developer-hackathon/atlas-ops`** (hyphen). Wrong slug → **404**. Push: `git push https://huggingface.co/spaces/lablab-ai-amd-developer-hackathon/atlas-ops main` (or add `lablab` remote; see section at top).
+
+2. **Build green** — Space → **Logs** → build finished, app listening on **7860**.
+
+3. **Secrets sanity**
+   - **`VLLM_BASE`** = `http://<MI300X_PUBLIC_IP>:8000/v1` — **not** `localhost`.
+   - **`ATLASOPS_SKIP_KUBECTL_INJECT=1`** on Space (no kubeconfig).
+   - **`ATLASOPS_PUBLIC_BASE_URL`** = `https://lablab-ai-amd-developer-hackathon-atlas-ops.hf.space` (no trailing slash; fix if your slug differs).
+   - **`DISCORD_WEBHOOK_URL`** set; rotate if it was ever pasted in chat.
+   - **Do not set `ATLASOPS_API_KEY`** on the public demo Space unless the UI is updated to send `X-AtlasOps-Key` — otherwise **`POST /inject` returns 401**.
+
+4. **Smoke test in browser (90 seconds)**  
+   Open app → DevTools console:
+   - `fetch('/health').then(r=>r.json()).then(console.log)` → `status: ok`, `agent_base` not localhost.  
+   - Click **Pod Kill** (or one historical replay) → timeline fills; **Approve** if shown; check Discord.
+
+5. **Judge story (one sentence each)**  
+   Real GKE + real metrics; four agents; **human approval** (UI buttons + Discord notice before remediation); MI300X for **SFT + online GRPO**; skip-kubectl only for **fault inject**, agents still use **live tools** elsewhere.
+
+6. **GitHub + slides** — `README` / **`docs/slides.md`** links match the Space you submit; export PDF from Marp if required.

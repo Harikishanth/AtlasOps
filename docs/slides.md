@@ -427,7 +427,7 @@ Alert → <span style="color:#FF4560">Triage</span> → <span style="color:#7B61
 <div style="font-weight:700;color:#FF4560;margin-bottom:8px;letter-spacing:1px">APPROVAL GATE</div>
 <div style="font-size:0.78em;color:#9BA3B8;line-height:1.8">
 <strong style="color:#E8EDF5">P0:</strong> Human required — no auto-execution<br>
-<strong style="color:#E8EDF5">P1:</strong> 60-second approval window<br>
+<strong style="color:#E8EDF5">P1:</strong> Approval window (default <strong>300s</strong>; set <code>APPROVAL_TIMEOUT_SECONDS</code>) + UI Approve/Reject<br>
 <strong style="color:#E8EDF5">P2/P3:</strong> Fully automatic<br>
 Token-based callbacks via REST API
 </div>
@@ -566,7 +566,8 @@ Real GKE cluster · Real training · Real results<br>
 </div>
 <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:12px;font-size:0.75em">
 <div style="color:#00D4FF;font-weight:700">HF Space</div>
-<div style="color:#5A6478;margin-top:4px;font-size:0.9em">lablab-ai-amd/atlasops</div>
+<div style="color:#5A6478;margin-top:4px;font-size:0.9em;line-height:1.35">lablab-ai-amd-developer-hackathon / <strong style="color:#E8EDF5">atlas-ops</strong></div>
+<div style="color:#5A6478;margin-top:6px;font-size:0.75em;line-height:1.4"><span style="font-family:'JetBrains Mono',monospace">lablab-ai-amd-developer-hackathon-atlas-ops.hf.space</span></div>
 </div>
 <div style="background:rgba(255,183,3,0.06);border:1px solid rgba(255,183,3,0.2);border-radius:8px;padding:12px;font-size:0.75em">
 <div style="color:#FFB703;font-weight:700">Team</div>

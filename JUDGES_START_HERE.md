@@ -4,6 +4,17 @@
 
 ---
 
+## Live console (Hugging Face Space)
+
+Hackathon deployment (correct slug uses a hyphen: **`atlas-ops`**):
+
+- **Space:** [lablab-ai-amd-developer-hackathon / atlas-ops](https://huggingface.co/spaces/lablab-ai-amd-developer-hackathon/atlas-ops)
+- **App URL:** `https://lablab-ai-amd-developer-hackathon-atlas-ops.hf.space` — open that in the browser, then **`/health`** on the same host for a JSON readiness check.
+
+If you see **404** on `…/spaces/…/atlasops` (no hyphen), use **`atlas-ops`** instead or the URL your team submitted after duplicating the Space.
+
+---
+
 ## 1. Confirm the cluster is real
 
 ```bash
