@@ -150,7 +150,7 @@ Curriculum:  CurriculumManager — spaced repetition [3,6,12,24,48] episodes,
 
 ### GRPO Results (Real Run, May 10 2026)
 
-Training completed — 59/60 steps confirmed, AMD MI300X, ~4 hours wall-clock.
+Training completed — 60/60 steps, AMD MI300X, 9h 34m wall-clock (34,454s).
 
 Full mean-reward curve across all 59 completed steps:
 ```
@@ -165,10 +165,10 @@ Step  8: mean=0.251   Step 20: mean=0.332   Step 32: mean=0.214   Step 44: mean=
 Step  9: mean=0.070   Step 21: mean=0.274   Step 33: mean=0.140   Step 45: mean=0.070   Step 57: mean=0.251
 Step 10: mean=0.144   Step 22: mean=0.297   Step 34: mean=0.101   Step 46: mean=0.261   Step 58: mean=0.286
 Step 11: mean=0.070   Step 23: mean=0.021   Step 35: mean=0.201   Step 47: mean=0.210   Step 59: mean=0.182
-Step 12: mean=0.070   Step 24: mean=0.376   Step 36: mean=0.341   Step 48: mean=0.116
+Step 12: mean=0.070   Step 24: mean=0.376   Step 36: mean=0.341   Step 48: mean=0.116   Step 60: mean=0.364
 ```
 
-**Overall mean across all steps: 0.200. Peak step: 31 (mean=0.421).**
+**Overall mean across all 60 steps: 0.2023. Peak: step 31 (mean=0.421). Final step 60: mean=0.364 (cascade/cs-003).**
 
 Key observations:
 - **Reward is deliberately noisy** — this is online RL against a real cluster. The model doesn't get
