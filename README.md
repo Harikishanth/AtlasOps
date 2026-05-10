@@ -72,12 +72,12 @@ Full fine-tuning pipeline on AMD hardware:
 | Component | Library |
 |---|---|
 | Hardware | AMD Instinct MI300X (192 GB HBM3) |
-| GPU runtime | **ROCm 6.x** |
+| GPU runtime | **ROCm 7.2** |
 | Training framework | **PyTorch** (ROCm wheel) |
-| AMD optimisation layer | **Hugging Face Optimum-AMD** (`optimum[amd]`) |
-| Fine-tuning | **TRL** SFTTrainer + GRPOTrainer |
-| Quantisation | **PEFT** QLoRA (4-bit NF4, LoRA r=16) |
-| Serving | **vLLM** (ROCm build) |
+| Quantisation | **BitsAndBytes-ROCm** (4-bit NF4 QLoRA, LoRA r=16) + **AWQ** (72B judge) |
+| Fine-tuning | **TRL** SFTTrainer + GRPOTrainer (DAPO loss) |
+| PEFT | **LoRA** r=16, α=32, target: q/k/v/o/gate/up/down proj |
+| Serving | **vLLM 0.17.1** (ROCm build — PagedAttention, flash attention) |
 | Domain | **SRE Operations** — incident triage, root-cause diagnosis, remediation, postmortem authoring |
 
 ---
