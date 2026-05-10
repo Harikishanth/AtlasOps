@@ -180,8 +180,16 @@ async def _handle_after_delay(name: str, scenario_id: str, correlation_id: str):
     await asyncio.sleep(20)
     from agents.tools.alertmanager import alertmanager_list_alerts
     result = alertmanager_list_alerts(active_only=True)
+    alerts_list = result.get("alerts") or []
+    top_alert = None
+    if alerts_list:
+        first = alerts_list[0]
+        top_alert = first.get("alertname") or (first.get("labels") or {}).get("alertname")
     alert = {
-        "commonLabels": {"alertname": result["alerts"][0]["alertname"] if result.get("alerts") else name},
+        "commonLabels": {
+            "alertname": top_alert if top_alert else name,
+            "scenario_id": scenario_id,
+        },
         "alerts": result.get("alerts", []),
         "scenario_id": scenario_id,
         "correlation_id": correlation_id,

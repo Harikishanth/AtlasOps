@@ -40,3 +40,20 @@ def test_different_namespace_does_not_correlate():
     inc2, is_new, _ = c.ingest(_alert("HighCPU", namespace="prod-b"))
     assert inc1 != inc2
     assert is_new is True
+
+
+def test_ui_inject_correlation_id_always_dispatches():
+    """Each demo inject is independent; same alertname/service must not dedupe."""
+    c = IncidentCorrelator()
+    base = {
+        "commonLabels": {"alertname": "HighCPU", "namespace": "default", "service": "frontend"},
+        "alerts": [{"labels": {"alertname": "HighCPU", "service": "frontend"}}],
+    }
+    a1 = {**base, "correlation_id": "inj-1-aaa", "scenario_id": "single_fault/sf-006"}
+    a2 = {**base, "correlation_id": "inj-2-bbb", "scenario_id": "single_fault/sf-002"}
+    inc1, new1, d1 = c.ingest(a1)
+    c.mark_processing(inc1, True)
+    inc2, new2, d2 = c.ingest(a2)
+    assert inc1 != inc2
+    assert new1 is True and new2 is True
+    assert d1 is True and d2 is True

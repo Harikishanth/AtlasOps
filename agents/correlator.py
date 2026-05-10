@@ -43,6 +43,30 @@ class IncidentCorrelator:
         now = time.time()
         self._expire_old(now)
 
+        # UI chaos inject carries `correlation_id=inj-...` (see app._handle_after_delay).
+        # Do not correlate with overlapping Alertmanager fingerprints or in-flight webhook
+        # incidents — otherwise the second scenario is silently skipped while the coordinator
+        # is still busy, and every poll uses `alerts[0]` so fingerprints look identical.
+        if isinstance(alert, dict):
+            cid = str(alert.get("correlation_id") or "").strip()
+            if cid.startswith("inj-"):
+                incident_id = f"inc-{int(now)}-{uuid.uuid4().hex[:6]}"
+                namespace = self._extract_namespace(alert)
+                services = self._extract_services(alert)
+                alert_names = self._extract_alert_names(alert)
+                inc = CorrelatedIncident(
+                    incident_id=incident_id,
+                    created_at=now,
+                    namespace=namespace,
+                    services=set(services),
+                    alert_names=set(alert_names),
+                    alerts=[alert],
+                    active_processing=False,
+                    last_alert_at=now,
+                )
+                self._incidents[incident_id] = inc
+                return incident_id, True, True
+
         namespace = self._extract_namespace(alert)
         services = self._extract_services(alert)
         alert_names = self._extract_alert_names(alert)
