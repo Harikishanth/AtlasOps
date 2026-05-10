@@ -18,6 +18,33 @@ import time
 import argparse
 from pathlib import Path
 
+
+def load_local_model(model_path: str):
+    """Load a LoRA checkpoint locally with Optimum-AMD BetterTransformer optimization.
+
+    Used when BACKEND=local (no vLLM server). Applies AMD-specific kernel
+    optimizations via Hugging Face Optimum-AMD on top of the base HF model.
+    """
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    import torch
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+    )
+
+    try:
+        from optimum.bettertransformer import BetterTransformer
+        model = BetterTransformer.transform(model)
+        print("[optimum-amd] BetterTransformer applied — AMD kernel optimizations active")
+    except (ImportError, Exception) as e:
+        print(f"[optimum-amd] not available ({e}) — using base HF model")
+
+    model.eval()
+    return model, tokenizer
+
 # Force UTF-8 stdout/stderr on Windows so LLM Unicode responses don't crash print()
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")

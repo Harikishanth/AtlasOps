@@ -77,7 +77,8 @@ Full fine-tuning pipeline on AMD hardware:
 | Quantisation | **BitsAndBytes-ROCm** (4-bit NF4 QLoRA, LoRA r=16) + **AWQ** (72B judge) |
 | Fine-tuning | **TRL** SFTTrainer + GRPOTrainer (DAPO loss) |
 | PEFT | **LoRA** r=16, α=32, target: q/k/v/o/gate/up/down proj |
-| Serving | **vLLM 0.17.1** (ROCm build — PagedAttention, flash attention) |
+| AMD kernel optimisation | **Hugging Face Optimum-AMD** — BetterTransformer applied to local inference path (`inference.py`) |
+| Serving | **vLLM 0.17.1** (ROCm build — PagedAttention, flash attention for MI300X) |
 | Domain | **SRE Operations** — incident triage, root-cause diagnosis, remediation, postmortem authoring |
 
 ---
