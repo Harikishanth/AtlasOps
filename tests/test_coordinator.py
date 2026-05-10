@@ -70,7 +70,24 @@ class TestJsonParsing:
 
 
 class TestBackendConfig:
+    @staticmethod
+    def _clear_hf_space_leakage(monkeypatch):
+        """Other tests (or local env) may leave Space-style vars; coordinator reads env at import."""
+        for k in (
+            "HF_TOKEN",
+            "HUGGING_FACE_HUB_TOKEN",
+            "SPACE_AUTHOR_NAME",
+            "SPACE_REPO_NAME",
+            "SPACE_ID",
+            "SYSTEM",
+            "VLLM_BASE",
+            "JUDGE_URL",
+            "ATLASOPS_USE_HF_INFERENCE",
+        ):
+            monkeypatch.delenv(k, raising=False)
+
     def test_vllm_defaults(self, monkeypatch):
+        self._clear_hf_space_leakage(monkeypatch)
         monkeypatch.setenv("BACKEND", "vllm")
         import importlib
         import agents.coordinator as coord
@@ -78,6 +95,7 @@ class TestBackendConfig:
         assert "localhost" in coord.VLLM_BASE or "8000" in coord.VLLM_BASE
 
     def test_fireworks_defaults(self, monkeypatch):
+        self._clear_hf_space_leakage(monkeypatch)
         monkeypatch.setenv("BACKEND", "fireworks")
         import importlib
         import agents.coordinator as coord
@@ -85,6 +103,7 @@ class TestBackendConfig:
         assert "fireworks" in coord.VLLM_BASE
 
     def test_api_key_empty_by_default(self, monkeypatch):
+        self._clear_hf_space_leakage(monkeypatch)
         monkeypatch.setenv("BACKEND", "vllm")
         monkeypatch.delenv("LLM_API_KEY", raising=False)
         import importlib

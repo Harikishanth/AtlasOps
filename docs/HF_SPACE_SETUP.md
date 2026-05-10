@@ -35,10 +35,12 @@ AtlasOps speaks **two** OpenAI-compatible HTTP endpoints:
 
 Configure **Space → Settings → Variables and secrets**:
 
-1. **`HF_TOKEN`** — your HF access token (**read** plus **Inference** / **fine-grained Inference** permission if you use Router).
-2. **`ATLASOPS_USE_HF_INFERENCE`** = `1`
+1. **`HF_TOKEN`** — your HF access token (**read** plus **Inference** / **fine-grained Inference** permission if you use Router). **This is the minimum to un-block the agent strip** on a fresh Space: the app now **auto-detects** a Hugging Face Space container and, if `VLLM_BASE` / `JUDGE_URL` still look like `localhost`, **replaces them** with the HF Inference Router. You do **not** have to add `ATLASOPS_USE_HF_INFERENCE=1` for that rescue (but you can set it explicitly for clarity).
+2. **`ATLASOPS_USE_HF_INFERENCE`** = `1` — optional if auto-routing already applied; set manually if you want the “HF pack” on every environment.
 
-This activates `config/hf_space_env.py`: it copies `HF_TOKEN` into `LLM_API_KEY` and `JUDGE_API_KEY`, and points both routers at **`https://router.huggingface.co/v1`** when you were still using localhost placeholders.
+`config/hf_space_env.py` copies `HF_TOKEN` into `LLM_API_KEY` and `JUDGE_API_KEY`, and overwrites **loopback** `VLLM_BASE` / `JUDGE_URL` with **`https://router.huggingface.co/v1`**. If you **already** set a **public** `VLLM_BASE` to your MI300X, that URL is **left alone**.
+
+**Opt out of auto-routing** (use only your self-hosted URL, even on a Space): `ATLASOPS_AUTO_HF_INFERENCE=0` or set a non-loopback `VLLM_BASE` first.
 
 Optional override:
 
