@@ -1,4 +1,4 @@
-# AtlasOps — Claude Code Context
+# AtlasOps — Maintainer notes
 
 ## What This Is
 Multi-agent SRE incident response platform for the **AMD Developer Hackathon (lablab.ai)**.
