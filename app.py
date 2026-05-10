@@ -16,7 +16,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -64,6 +64,7 @@ from agents.approval import approval_gate
 from agents.audit import audit_log
 from agents.circuit_breaker import circuit_breaker
 from agents.correlator import correlator
+from agents.prometheus_metrics import build_dashboard_metrics_payload
 from agents.stream import subscribe, get_history
 
 app = FastAPI(title="AtlasOps", docs_url="/api/docs")
@@ -191,38 +192,20 @@ async def thoughts():
 @app.get("/metrics")
 async def proxy_metrics():
     """Server-side Prometheus proxy — avoids browser CORS on direct GKE IP access."""
-    import httpx as _httpx
-    prom = os.getenv("PROMETHEUS_URL", "")
-    alert_url = os.getenv("ALERTMANAGER_URL", "")
-    results: dict = {"error_rate": None, "cpu": None, "rps": None, "alerts": None}
-    if not prom:
-        return JSONResponse(results)
-    queries = {
-        "error_rate": 'sum(rate(apiserver_request_total{code=~"5.."}[2m])) or vector(0)',
-        "cpu":        'sum(rate(container_cpu_usage_seconds_total{namespace="default"}[2m])) or vector(0)',
-        "rps":        'sum(rate(apiserver_request_total[2m])) or vector(0)',
-    }
-    try:
-        async with _httpx.AsyncClient(timeout=6) as client:
-            for key, query in queries.items():
-                try:
-                    r = await client.get(f"{prom}/api/v1/query", params={"query": query})
-                    if r.status_code == 200:
-                        data = r.json().get("data", {}).get("result", [])
-                        total = sum(float(x["value"][1]) for x in data if x.get("value"))
-                        results[key] = round(total, 4)
-                except Exception:
-                    pass
-            if alert_url:
-                try:
-                    ar = await client.get(f"{alert_url}/api/v2/alerts?active=true")
-                    if ar.status_code == 200:
-                        results["alerts"] = len(ar.json())
-                except Exception:
-                    pass
-    except Exception:
-        pass
-    return JSONResponse(results)
+    return JSONResponse(await build_dashboard_metrics_payload())
+
+
+@app.get("/bench/results/comparison_table.md")
+async def comparison_table_markdown():
+    """UI fetches this path; serve repo file or a tiny placeholder."""
+    p = Path(__file__).resolve().parent / "bench" / "results" / "comparison_table.md"
+    if not p.is_file():
+        return PlainTextResponse(
+            "| Scenario | Outcome | Notes |\n|---|---|---|\n"
+            "| *pending* | — | Run `python bench/runner.py` or `python -m bench.quick_eval` locally, then commit `bench/results/comparison_table.md`. |\n",
+            media_type="text/markdown; charset=utf-8",
+        )
+    return PlainTextResponse(p.read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")
 
 
 @app.get("/health")
@@ -237,7 +220,8 @@ async def health():
 @app.get("/config")
 async def runtime_config():
     """Expose runtime URLs so UI doesn't rely on hardcoded IPs."""
-    coordinator_url = os.getenv("COORDINATOR_URL", "http://localhost:9099")
+    # Empty → browser keeps `window.location.origin` (required for HF Spaces).
+    coordinator_url = (os.getenv("COORDINATOR_URL") or "").strip()
     grafana_url = os.getenv("GRAFANA_URL", "")
     argocd_url = os.getenv("ARGOCD_URL", "")
     boutique_url = os.getenv("BOUTIQUE_URL", "")
