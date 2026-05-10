@@ -1208,7 +1208,7 @@ function _drawLoadingSparkline(canvasId, color) {
 async function refreshPrometheusMetrics() {
   try {
     // Use server-side proxy to avoid CORS — browser → app.py → Prometheus
-    const r = await fetch('/api/metrics', {signal: AbortSignal.timeout(8000)});
+    const r = await fetch('/metrics', {signal: AbortSignal.timeout(8000)});
     if (!r.ok) throw new Error('proxy error');
     const d = await r.json();
 

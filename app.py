@@ -188,7 +188,7 @@ async def thoughts():
     return JSONResponse({"thoughts": get_history()})
 
 
-@app.get("/api/metrics")
+@app.get("/metrics")
 async def proxy_metrics():
     """Server-side Prometheus proxy — avoids browser CORS on direct GKE IP access."""
     import httpx as _httpx
