@@ -14,6 +14,10 @@ import time
 import uuid
 from pathlib import Path
 
+from config.hf_space_env import apply_hf_space_inference_defaults
+
+apply_hf_space_inference_defaults()
+
 from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
@@ -37,6 +41,10 @@ if not _API_KEY:
     log.warning("ATLASOPS_API_KEY not set — mutating endpoints are unauthenticated (dev mode)")
 if not _WEBHOOK_SECRET:
     log.warning("ALERTMANAGER_WEBHOOK_SECRET not set — webhook accepts unsigned payloads (dev mode)")
+
+
+def _truthy_env(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _require_api_key(key: str | None = Security(_api_key_header)) -> None:
@@ -87,6 +95,7 @@ class InjectResponse(BaseModel):
     ok: bool
     scenario_id: str
     correlation_id: str
+    kubectl_skipped: bool = False
 
 
 class RuntimeConfigResponse(BaseModel):
@@ -122,20 +131,44 @@ async def inject_chaos(request: Request):
     if not manifest.exists():
         return JSONResponse({"ok": False, "error": f"Manifest not found: {scenario_id}"}, 404)
 
-    env = os.environ.copy()
-    env["USE_GKE_GCLOUD_AUTH_PLUGIN"] = "True"
-    r = subprocess.run(
-        ["kubectl", "apply", "-f", str(manifest)],
-        capture_output=True, text=True, env=env, timeout=15,
-    )
-    if r.returncode != 0:
-        return JSONResponse({"ok": False, "error": r.stderr}, 500)
+    kubectl_skipped = _truthy_env("ATLASOPS_SKIP_KUBECTL_INJECT")
+    if kubectl_skipped:
+        log.warning(
+            "ATLASOPS_SKIP_KUBECTL_INJECT: not applying manifests; firing incident pipeline anyway "
+            "(HF Space demo without kubeconfig)."
+        )
+    else:
+        env = os.environ.copy()
+        env["USE_GKE_GCLOUD_AUTH_PLUGIN"] = "True"
+        r = subprocess.run(
+            ["kubectl", "apply", "-f", str(manifest)],
+            capture_output=True, text=True, env=env, timeout=15,
+        )
+        if r.returncode != 0:
+            err_msg = (r.stderr or "").strip() or r.stdout.strip() or f"exit {r.returncode}"
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": err_msg,
+                    "hint": (
+                        "On Hugging Face Spaces, kubectl usually has no kubeconfig — set "
+                        "ATLASOPS_SKIP_KUBECTL_INJECT=1 to run triage/diagnosis via LLMs using live "
+                        "Prometheus/Alertmanager only (no chaos manifests applied)."
+                    ),
+                },
+                500,
+            )
 
     # Fire the incident through the coordinator after a brief wait
     import asyncio
     asyncio.create_task(_handle_after_delay(body.name or scenario_id, scenario_id, correlation_id))
     return JSONResponse(
-        InjectResponse(ok=True, scenario_id=scenario_id, correlation_id=correlation_id).model_dump()
+        InjectResponse(
+            ok=True,
+            scenario_id=scenario_id,
+            correlation_id=correlation_id,
+            kubectl_skipped=kubectl_skipped,
+        ).model_dump()
     )
 
 
@@ -164,6 +197,9 @@ async def _handle_after_delay(name: str, scenario_id: str, correlation_id: str):
 
 @app.post("/reset", dependencies=[Security(_require_api_key)])
 async def reset_chaos():
+    if _truthy_env("ATLASOPS_SKIP_KUBECTL_INJECT"):
+        log.warning("ATLASOPS_SKIP_KUBECTL_INJECT: skipping kubectl delete on reset")
+        return JSONResponse({"ok": True, "kubectl_skipped": True})
     env = os.environ.copy()
     env["USE_GKE_GCLOUD_AUTH_PLUGIN"] = "True"
     subprocess.run(
@@ -210,10 +246,21 @@ async def comparison_table_markdown():
 
 @app.get("/health")
 async def health():
+    from agents.coordinator import _live_judge_requested
+
+    agent_base = os.getenv("VLLM_BASE", "").rstrip("/")
+    ju = os.getenv("JUDGE_URL", "").rstrip("/")
     return JSONResponse({
         "status": "ok",
         "model": os.getenv("AGENT_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
+        "agent_base": agent_base,
         "backend": os.getenv("BACKEND", "vllm"),
+        "judge_model": os.getenv("JUDGE_MODEL", ""),
+        "judge_base": ju,
+        "hf_inference_pack": os.getenv("ATLASOPS_USE_HF_INFERENCE", ""),
+        "live_judge": _live_judge_requested(),
+        "discord_webhook_configured": bool(os.getenv("DISCORD_WEBHOOK_URL", "").strip()),
+        "slack_webhook_configured": bool(os.getenv("SLACK_WEBHOOK_URL", "").strip()),
     })
 
 

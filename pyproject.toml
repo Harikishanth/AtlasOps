@@ -49,7 +49,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["agents", "bench", "training"]
+packages = ["agents", "bench", "config", "training"]
 
 [tool.ruff]
 line-length = 100

@@ -9,13 +9,41 @@ Red herring handling scored as 4th dimension for multi-fault/adversarial tiers.
 """
 
 import json
+import logging
 import os
 from typing import Any
 
 import httpx
 
-JUDGE_URL   = os.getenv("JUDGE_URL",   "http://localhost:8001/v1")
+log = logging.getLogger("atlasops.judge")
+
+JUDGE_URL = os.getenv("JUDGE_URL", "http://localhost:8001/v1").rstrip("/")
 JUDGE_MODEL = os.getenv("JUDGE_MODEL", "Qwen/Qwen2.5-72B-Instruct-AWQ")
+
+# HF Spaces: set HF_TOKEN (or Space token) → copied to LLM_API_KEY via config/hf_space_env.py.
+def _judge_headers() -> dict[str, str]:
+    key = (
+        os.getenv("JUDGE_API_KEY", "").strip()
+        or os.getenv("LLM_API_KEY", "").strip()
+        or os.getenv("HF_TOKEN", "").strip()
+    )
+    return {"Authorization": f"Bearer {key}"} if key else {}
+
+
+def infer_tier_from_alert(alert: dict[str, Any]) -> str:
+    """Infer curriculum tier from optional scenario_id injected from the chaos UI."""
+    sid = ((alert.get("scenario_id") or "") + "").replace("\\", "/").lower()
+    if "/named_replays/" in sid or sid.startswith("named_replays/"):
+        return "named_replays"
+    if "/adversarial/" in sid or sid.startswith("adversarial/"):
+        return "adversarial"
+    if "/multi_fault/" in sid or sid.startswith("multi_fault/"):
+        return "multi_fault"
+    if "/cascade/" in sid or sid.startswith("cascade/"):
+        return "cascade"
+    if "/single_fault/" in sid or sid.startswith("single_fault/"):
+        return "single_fault"
+    return "single_fault"
 
 # ── Persona rubrics ────────────────────────────────────────────────────────────
 
@@ -89,20 +117,28 @@ async def judge_trajectory(incident: dict[str, Any], tier: str = "unknown") -> d
             "postmortem_path":      incident.get("comms",       {}).get("final", {}).get("postmortem_path"),
         }, indent=2)
 
-        async with httpx.AsyncClient(timeout=60) as client:
+        hdrs = _judge_headers()
+        async with httpx.AsyncClient(timeout=120, headers=hdrs) as client:
             r = await client.post(
                 f"{JUDGE_URL}/chat/completions",
                 json={
                     "model": JUDGE_MODEL,
                     "messages": [
                         {"role": "system", "content": rubric},
-                        {"role": "user",   "content": user_msg[:3000]},
+                        {"role": "user", "content": user_msg[:3000]},
                     ],
                     "temperature": 0.0,
-                    "max_tokens":  250,
+                    "max_tokens": 250,
                 },
             )
             if r.status_code != 200:
+                log.warning(
+                    "judge HTTP %s — model=%s url=%s body=%s",
+                    r.status_code,
+                    JUDGE_MODEL,
+                    JUDGE_URL,
+                    r.text[:500],
+                )
                 return _FALLBACK
 
             content = r.json()["choices"][0]["message"]["content"]
@@ -117,4 +153,5 @@ async def judge_trajectory(incident: dict[str, Any], tier: str = "unknown") -> d
         return result
 
     except Exception:
+        log.exception("judge_trajectory failed (using fallback scores)")
         return _FALLBACK

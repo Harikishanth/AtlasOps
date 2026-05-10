@@ -8,7 +8,8 @@ data/
 bench/results/
 # docs/postmortems/ — keep sample postmortems, ignore generated ones
 docs/postmortems/generated/
-bench/chaos_manifests/adversarial/
+# Adversarial manifests: commit frozen adv-*.yaml; ignore judge-generated sidecars
+bench/chaos_manifests/adversarial/*.json
 .venv/
 venv/
 *.egg-info/

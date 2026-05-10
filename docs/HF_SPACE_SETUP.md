@@ -1,0 +1,104 @@
+# Hugging Face Spaces — wired 7B agents + 72B judge
+
+AtlasOps speaks **two** OpenAI-compatible HTTP endpoints:
+
+| Role | Env vars | Typical model id |
+|------|-----------|-------------------|
+| **Incident agents** (triage→comms) | `VLLM_BASE`, `AGENT_MODEL`, token | Your merged 7B on Hub **or** `Qwen/Qwen2.5-7B-Instruct` |
+| **Judge** (scores responses; benchmarks + optional live ribbon) | `JUDGE_URL`, `JUDGE_MODEL`, token | Smaller HF model if 72B is blocked on quota |
+
+## One-switch setup on the Space root
+
+Configure **Space → Settings → Variables and secrets**:
+
+1. **`HF_TOKEN`** — your HF access token (**read** plus **Inference** / **fine-grained Inference** permission if you use Router).
+2. **`ATLASOPS_USE_HF_INFERENCE`** = `1`
+
+This activates `config/hf_space_env.py`: it copies `HF_TOKEN` into `LLM_API_KEY` and `JUDGE_API_KEY`, and points both routers at **`https://router.huggingface.co/v1`** when you were still using localhost placeholders.
+
+Optional override:
+
+```
+HF_INFERENCE_BASE=https://router.huggingface.co/v1
+```
+
+## Model IDs agents will call
+
+Required:
+
+```
+AGENT_MODEL=<your-namespace/your-atlasops-merged-7b>
+JUDGE_MODEL=Qwen/Qwen2.5-72B-Instruct-AWQ
+```
+
+(or any Hub model Router actually serves under your billing tier)
+
+72B AWQ often needs a **paid** Inference allotment or **dedicated Inference Endpoint**.  
+If Router returns 429/403 on 72B, set for example **`JUDGE_MODEL=Qwen/Qwen2.5-32B-Instruct`** temporarily — AtlasOps keeps working.
+
+## Putting your GRPO weights on Hugging Face (7B)
+
+The coordinator sends **only** a `model` string (no silent LoRA layer). Serving options:
+
+1. **Merge LoRA locally** into the base checkpoint, upload the merged weights to `your-org/atlasops-7b-grpo`, set `AGENT_MODEL` to that repo (see `training/merge_lora_for_hub.py` after `pip install -e ".[train]"`).
+2. **Self-hosted vLLM + `--enable-lora`** on AMD hardware (not HF Space CPU) — would require coordinator changes to attach LoRA per request unless you bake merged weights yourself.
+
+For most hackathon demos **merged Hub model + Router** is the least painful.
+
+## Live judge inside the Ops UI
+
+When `ATLASOPS_USE_HF_INFERENCE=1`, the coordinator fires **one judge call after comms**, and the timeline prints the score (`judge_trajectory` tool line).
+
+Explicit flags:
+
+```
+ATLASOPS_LIVE_JUDGE=1   # force ON
+ATLASOPS_LIVE_JUDGE=0   # force OFF even with HF inference pack
+```
+
+Local MI300x with `JUDGE_URL=http://localhost:8001/v1`: keep **`ATLASOPS_USE_HF_INFERENCE` unset**, set **`ATLASOPS_LIVE_JUDGE=1`** if you still want judge lines in Grafana.
+
+## Health checks after deploy
+
+- `GET https://<space>/health` — agent + judge **model names** + bases (inspect JSON).
+- `GET https://<space>/api/health` — coordinator copy with `live_judge` Boolean.
+
+Neither endpoint prints raw tokens.
+
+After redeploy with the bundled UI, the **footer bar** polls `/health` and shows **`Discord webhook ✓`** or **`✗ add DISCORD_WEBHOOK_URL`** so you know whether `DISCORD_WEBHOOK_URL` reached the Space (no webhook URL is ever rendered).
+
+## Summary checklist
+
+```
+HF_TOKEN=<secret>
+ATLASOPS_USE_HF_INFERENCE=1
+AGENT_MODEL=your-org/your-trained-merged-7b
+JUDGE_MODEL=Qwen/Qwen2.5-72B-Instruct-AWQ    # or a smaller HF model Router allows
+BACKEND=openai                                 # optional; bootstrap sets default when ATLASOPS_USE_HF_INFERENCE=1
+```
+
+Redeploy the Space; trigger chaos from the sidebar and confirm timeline shows both tool calls (`judge` / `judge_trajectory`) and agent turns.
+
+## Space has no kubeconfig (Pod Kill returns 500)
+
+The UI’s **Inject** endpoint runs `kubectl apply` on chaos manifests. Typical HF Space containers **do not** have credentials to your GKE API server, so you will see **`POST /inject` → 500** in logs and the coordinator never starts.
+
+Set this **Space variable** so inject **skips** kubectl but still schedules the incident pipeline (reads **live** Alertmanager after a short delay):
+
+```
+ATLASOPS_SKIP_KUBECTL_INJECT=1
+```
+
+Real fault injection still requires a reachable cluster from **somewhere** that has kubeconfig (CI, laptop, or another service). For a public demo, you can rely on **already-firing** alerts in Alertmanager or webhook-driven incidents.
+
+---
+
+## Discord (why nothing appears in your server)
+
+AtlasOps does **not** use a Discord “bot” that shows online in the member list. It posts through an **Incoming Webhook** URL.
+
+1. Discord → your server → **Server Settings** → **Integrations** → **Webhooks** → **New Webhook** → pick `#general` (or a channel) → copy **Webhook URL**.
+2. In HF Space **Secrets**, add **`DISCORD_WEBHOOK_URL`** = that URL (same as `agents/tools/comms.py` expects).
+3. A message is sent only when the **comms** agent runs the `slack_post_update` tool during a **real** incident (not the browser-only UI preview). If the agent chain is stuck before comms (e.g. LLM unreachable), Discord stays empty — fix `VLLM_BASE` / HF inference first.
+
+Optional: **`SLACK_WEBHOOK_URL`** for Slack in parallel; both can be set.

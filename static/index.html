@@ -27,12 +27,19 @@
 
   * { margin:0; padding:0; box-sizing:border-box; }
 
+  html {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
   body {
     background: var(--bg);
     color: var(--text);
     font-family: var(--font);
     font-size: 13px;
     overflow-x: hidden;
+    overflow-y: visible;
   }
 
   /* ── Neural network canvas background ── */
@@ -102,21 +109,35 @@
     box-shadow: 0 0 8px rgba(0,227,150,0.08);
   }
 
-  /* ── Main layout ── */
+  /* ── Main layout (document scrolls — avoids HF iframe clipping) ── */
   .main {
-    padding-top: 52px; height: 100vh; overflow: hidden;
+    padding-top: 52px;
+    min-height: calc(100vh - 52px);
+    overflow-x: hidden;
+    overflow-y: visible;
     display: grid;
     grid-template-columns: 340px 1fr 400px;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto;
     gap: 0;
+    align-content: start;
     position: relative; z-index: 2;
+    padding-bottom: 32px;
+  }
+  @media (max-width: 1180px) {
+    .main {
+      grid-template-columns: 1fr;
+    }
+    .panel { border-right: none; border-bottom: 1px solid var(--border); }
+    .center-panel { border-right: none; border-bottom: 1px solid var(--border); }
   }
 
   /* ── Panel base (glassmorphism) ── */
   .panel {
     border-right: 1px solid var(--border);
     display: flex; flex-direction: column;
-    position: relative; overflow: hidden;
+    position: relative;
+    overflow-x: hidden;
+    overflow-y: visible;
     background: rgba(11,17,32,0.7);
     backdrop-filter: blur(8px);
     min-height: 0;
@@ -133,7 +154,7 @@
     letter-spacing: 2.5px; text-transform: uppercase;
     color: var(--textdim);
   }
-  .panel-body { padding: 16px; overflow-y: auto; flex: 1; }
+  .panel-body { padding: 16px; overflow-y: visible; flex: 0 0 auto; }
 
   /* ── Incident card ── */
   .incident-card {
@@ -224,6 +245,7 @@
     background: var(--bg); border: 1px solid var(--border);
     color: var(--textdim); flex-shrink: 0;
   }
+  .scenario-tier.adv { color: var(--orange); border-color: rgba(255,123,46,0.45); letter-spacing: 1px; font-weight: 700; }
   .btn-reset {
     width: 100%; padding: 8px;
     background: rgba(255,69,96,0.07);
@@ -236,9 +258,15 @@
   .btn-reset:hover { background: rgba(255,69,96,0.14); box-shadow: 0 0 12px rgba(255,69,96,0.15); }
 
   /* ── Middle: Grafana + topology ── */
-  .center-panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(11,17,32,0.7); }
+  .center-panel {
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    background: rgba(11,17,32,0.7);
+    overflow: visible;
+    min-height: 0;
+  }
   .grafana-wrap {
-    position: relative; flex: 1; min-height: 280px;
+    position: relative; flex: 0 0 auto; min-height: 300px;
     background: var(--bg2);
   }
   .grafana-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
@@ -341,9 +369,18 @@
   .mttr-value.alerting { color: var(--red); text-shadow: 0 0 20px rgba(255,69,96,0.6); animation: countPulse 1s ease-in-out infinite; }
 
   /* ── Agent timeline ── */
-  .timeline-panel { display: flex; flex-direction: column; background: rgba(11,17,32,0.7); min-height: 0; overflow: hidden; }
+  .timeline-panel {
+    display: flex; flex-direction: column;
+    background: rgba(11,17,32,0.7);
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
   .timeline-body {
-    flex: 1; overflow-y: auto; padding: 12px;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    max-height: min(480px, 55vh);
+    padding: 12px;
     display: flex; flex-direction: column; gap: 8px;
   }
   .thought-entry {
@@ -389,11 +426,18 @@
   /* ── Status bar ── */
   .statusbar {
     grid-column: 1/-1;
-    height: 28px;
+    min-height: 28px;
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding-top: 6px;
+    padding-bottom: 6px;
     background: rgba(6,10,18,0.95);
     border-top: 1px solid var(--border);
     display: flex; align-items: center;
-    padding: 0 16px; gap: 20px;
+    padding-left: 16px;
+    padding-right: 16px;
+    gap: 16px;
     font-size: 10px; color: var(--textdim);
     position: relative; z-index: 2;
   }
@@ -581,36 +625,96 @@
 
       <div class="scenario-section">
         <div class="section-label">Historical Replays</div>
-        <button class="scenario-btn" onclick="injectChaos('named_replays/hist-cloudflare-2019','Cloudflare 2019')">
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-cloudflare-2019" onclick="injectChaos(this,'named_replays/hist-cloudflare-2019','Cloudflare 2019')">
           <span class="scenario-icon">🌩</span>
           <div class="scenario-info"><div class="scenario-name">Cloudflare 2019</div><div class="scenario-sub">Regex CPU storm → 85% traffic down</div></div>
           <span class="scenario-tier">expert</span>
         </button>
-        <button class="scenario-btn" onclick="injectChaos('named_replays/hist-github-2018','GitHub 2018')">
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-github-2018" onclick="injectChaos(this,'named_replays/hist-github-2018','GitHub 2018')">
           <span class="scenario-icon">🔄</span>
           <div class="scenario-info"><div class="scenario-name">GitHub 2018</div><div class="scenario-sub">DB failover loop · 24h incident</div></div>
           <span class="scenario-tier">expert</span>
         </button>
-        <button class="scenario-btn" onclick="injectChaos('named_replays/hist-discord-2022','Discord 2022')">
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-discord-2022" onclick="injectChaos(this,'named_replays/hist-discord-2022','Discord 2022')">
           <span class="scenario-icon">⚡</span>
           <div class="scenario-info"><div class="scenario-name">Discord 2022</div><div class="scenario-sub">Cache thundering herd</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-aws-s3-2017" onclick="injectChaos(this,'named_replays/hist-aws-s3-2017','AWS S3 2017')">
+          <span class="scenario-icon">🪣</span>
+          <div class="scenario-info"><div class="scenario-name">AWS S3 2017</div><div class="scenario-sub">Regional outage · cascading SDK retries</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-azure-dns-2019" onclick="injectChaos(this,'named_replays/hist-azure-dns-2019','Azure DNS 2019')">
+          <span class="scenario-icon">🔷</span>
+          <div class="scenario-info"><div class="scenario-name">Azure DNS 2019</div><div class="scenario-sub">Resolver brownout · cross-region</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-fastly-2021" onclick="injectChaos(this,'named_replays/hist-fastly-2021','Fastly 2021')">
+          <span class="scenario-icon">🔌</span>
+          <div class="scenario-info"><div class="scenario-name">Fastly 2021</div><div class="scenario-sub">Bad deploy / edge config</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-facebook-bgp-2021" onclick="injectChaos(this,'named_replays/hist-facebook-bgp-2021','Facebook BGP 2021')">
+          <span class="scenario-icon">📡</span>
+          <div class="scenario-info"><div class="scenario-name">Facebook BGP 2021</div><div class="scenario-sub">Control plane partition</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-datadog-2023" onclick="injectChaos(this,'named_replays/hist-datadog-2023','Datadog 2023')">
+          <span class="scenario-icon">🐕</span>
+          <div class="scenario-info"><div class="scenario-name">Datadog 2023</div><div class="scenario-sub">Ingest backlog / pipeline pressure</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-slack-2022" onclick="injectChaos(this,'named_replays/hist-slack-2022','Slack 2022')">
+          <span class="scenario-icon">💬</span>
+          <div class="scenario-info"><div class="scenario-name">Slack 2022</div><div class="scenario-sub">WebSocket mesh · multi-cell</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="named_replays/hist-knight-capital-2012" onclick="injectChaos(this,'named_replays/hist-knight-capital-2012','Knight Capital 2012')">
+          <span class="scenario-icon">💰</span>
+          <div class="scenario-info"><div class="scenario-name">Knight Capital 2012</div><div class="scenario-sub">Partial deploy mismatch</div></div>
           <span class="scenario-tier">expert</span>
         </button>
       </div>
 
       <div class="scenario-section">
         <div class="section-label">Single Fault</div>
-        <button class="scenario-btn" onclick="injectChaos('single_fault/sf-001','Pod Kill')">
+        <button type="button" class="scenario-btn" data-scenario="single_fault/sf-001" onclick="injectChaos(this,'single_fault/sf-001','Pod Kill')">
           <span class="scenario-icon">💀</span>
           <div class="scenario-info"><div class="scenario-name">Pod Kill</div><div class="scenario-sub">cartservice OOMKill</div></div>
           <span class="scenario-tier">beginner</span>
         </button>
-        <button class="scenario-btn" onclick="injectChaos('single_fault/sf-002','CPU Hog')">
+        <button type="button" class="scenario-btn" data-scenario="single_fault/sf-002" onclick="injectChaos(this,'single_fault/sf-002','CPU Hog')">
           <span class="scenario-icon">🔥</span>
           <div class="scenario-info"><div class="scenario-name">CPU Hog</div><div class="scenario-sub">paymentservice runaway</div></div>
           <span class="scenario-tier">beginner</span>
         </button>
-        <button class="scenario-btn" onclick="injectChaos('single_fault/sf-008','Clock Skew')">
+        <button type="button" class="scenario-btn" data-scenario="single_fault/sf-003" onclick="injectChaos(this,'single_fault/sf-003','Checkout mem stress')">
+          <span class="scenario-icon">🧠</span>
+          <div class="scenario-info"><div class="scenario-name">Checkout mem stress</div><div class="scenario-sub">Memory pressure · checkoutservice</div></div>
+          <span class="scenario-tier">medium</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="single_fault/sf-004" onclick="injectChaos(this,'single_fault/sf-004','Frontend packet loss')">
+          <span class="scenario-icon">📉</span>
+          <div class="scenario-info"><div class="scenario-name">Frontend packet loss</div><div class="scenario-sub">50% loss ingress path</div></div>
+          <span class="scenario-tier">medium</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="single_fault/sf-005" onclick="injectChaos(this,'single_fault/sf-005','Redis ↔ cart partition')">
+          <span class="scenario-icon">🔗</span>
+          <div class="scenario-info"><div class="scenario-name">Redis ↔ cart partition</div><div class="scenario-sub">Network split data path</div></div>
+          <span class="scenario-tier">hard</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="single_fault/sf-006" onclick="injectChaos(this,'single_fault/sf-006','Payment DNS chaos')">
+          <span class="scenario-icon">🌐</span>
+          <div class="scenario-info"><div class="scenario-name">Payment DNS chaos</div><div class="scenario-sub">Random DNS · paymentservice calls</div></div>
+          <span class="scenario-tier">hard</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="single_fault/sf-007" onclick="injectChaos(this,'single_fault/sf-007','Email disk fault')">
+          <span class="scenario-icon">💾</span>
+          <div class="scenario-info"><div class="scenario-name">Email disk fault</div><div class="scenario-sub">ENOSPC on emailservice logs</div></div>
+          <span class="scenario-tier">hard</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="single_fault/sf-008" onclick="injectChaos(this,'single_fault/sf-008','Clock Skew')">
           <span class="scenario-icon">⏰</span>
           <div class="scenario-info"><div class="scenario-name">Clock Skew</div><div class="scenario-sub">JWT expiry failures</div></div>
           <span class="scenario-tier">medium</span>
@@ -619,10 +723,68 @@
 
       <div class="scenario-section">
         <div class="section-label">Cascade</div>
-        <button class="scenario-btn" onclick="injectChaos('cascade/cs-001','Currency → Checkout')">
+        <button type="button" class="scenario-btn" data-scenario="cascade/cs-001" onclick="injectChaos(this,'cascade/cs-001','Currency → Checkout')">
           <span class="scenario-icon">🌊</span>
           <div class="scenario-info"><div class="scenario-name">Currency → Checkout</div><div class="scenario-sub">Latency cascade · 5xx surge</div></div>
           <span class="scenario-tier">hard</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="cascade/cs-002" onclick="injectChaos(this,'cascade/cs-002','Redis partition cascade')">
+          <span class="scenario-icon">🧱</span>
+          <div class="scenario-info"><div class="scenario-name">Redis partition cascade</div><div class="scenario-sub">Cart errors → checkout revenue path</div></div>
+          <span class="scenario-tier">hard</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="cascade/cs-003" onclick="injectChaos(this,'cascade/cs-003','Rec CPU → FE latency')">
+          <span class="scenario-icon">📈</span>
+          <div class="scenario-info"><div class="scenario-name">Rec CPU → FE latency</div><div class="scenario-sub">Recommendationservice CPU hog</div></div>
+          <span class="scenario-tier">hard</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="cascade/cs-004" onclick="injectChaos(this,'cascade/cs-004','Email disk → checkout')">
+          <span class="scenario-icon">✉️</span>
+          <div class="scenario-info"><div class="scenario-name">Email disk → checkout</div><div class="scenario-sub">Notification backlog timeout</div></div>
+          <span class="scenario-tier">hard</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="cascade/cs-005" onclick="injectChaos(this,'cascade/cs-005','Cloud SQL exhaustion')">
+          <span class="scenario-icon">🗄</span>
+          <div class="scenario-info"><div class="scenario-name">Cloud SQL exhaustion</div><div class="scenario-sub">DB pool → cart 500s</div></div>
+          <span class="scenario-tier">hard</span>
+        </button>
+      </div>
+
+      <div class="scenario-section">
+        <div class="section-label">Multi-fault</div>
+        <button type="button" class="scenario-btn" data-scenario="multi_fault/mf-001" onclick="injectChaos(this,'multi_fault/mf-001','FE loss + checkout CPU')">
+          <span class="scenario-icon">⚡</span>
+          <div class="scenario-info"><div class="scenario-name">FE loss + checkout CPU</div><div class="scenario-sub">mf-001 · overlapping faults</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="multi_fault/mf-002" onclick="injectChaos(this,'multi_fault/mf-002','Redis part + rec mem')">
+          <span class="scenario-icon">⚡</span>
+          <div class="scenario-info"><div class="scenario-name">Redis part + rec mem</div><div class="scenario-sub">mf-002</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="multi_fault/mf-003" onclick="injectChaos(this,'multi_fault/mf-003','DNS + currency latency')">
+          <span class="scenario-icon">⚡</span>
+          <div class="scenario-info"><div class="scenario-name">DNS + currency latency</div><div class="scenario-sub">mf-003</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="multi_fault/mf-004" onclick="injectChaos(this,'multi_fault/mf-004','Clock skew + cart loss')">
+          <span class="scenario-icon">⚡</span>
+          <div class="scenario-info"><div class="scenario-name">Clock skew + cart loss</div><div class="scenario-sub">mf-004</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+        <button type="button" class="scenario-btn" data-scenario="multi_fault/mf-005" onclick="injectChaos(this,'multi_fault/mf-005','Email IO + checkout delay')">
+          <span class="scenario-icon">⚡</span>
+          <div class="scenario-info"><div class="scenario-name">Email IO + checkout delay</div><div class="scenario-sub">mf-005</div></div>
+          <span class="scenario-tier">expert</span>
+        </button>
+      </div>
+
+      <div class="scenario-section">
+        <div class="section-label">Adversarial</div>
+        <button type="button" class="scenario-btn" data-scenario="adversarial/adv-001" onclick="injectChaos(this,'adversarial/adv-001','Adv-001 rec kill + catalog CPU')">
+          <span class="scenario-icon">🎯</span>
+          <div class="scenario-info"><div class="scenario-name">Adv-001 rec kill + catalog CPU</div><div class="scenario-sub">Overlapping blast radius</div></div>
+          <span class="scenario-tier adv">ADV</span>
         </button>
       </div>
 
@@ -640,7 +802,7 @@
         <a href="#" id="grafana-link" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none;opacity:0.7">Grafana ↗</a>
       </div>
     </div>
-    <div class="grafana-wrap" id="grafana-wrap" style="flex:1;display:flex;flex-direction:column;padding:14px;gap:12px;background:var(--bg2);min-height:0;overflow-y:auto">
+    <div class="grafana-wrap" id="grafana-wrap" style="display:flex;flex-direction:column;padding:14px;gap:12px;background:var(--bg2);min-height:280px;overflow:visible">
       <!-- Metric cards row -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex-shrink:0">
         <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:8px;padding:12px">
@@ -660,16 +822,17 @@
         </div>
       </div>
       <!-- Sparkline charts -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column">
           <div style="font-size:9px;letter-spacing:1.5px;color:var(--textdim);text-transform:uppercase;margin-bottom:6px">Request Rate (req/s)</div>
-          <canvas id="spark-rps" style="width:100%;flex:1;min-height:70px"></canvas>
+          <canvas id="spark-rps" style="width:100%;height:88px;display:block"></canvas>
         </div>
         <div style="background:rgba(6,10,18,0.8);border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column">
           <div style="font-size:9px;letter-spacing:1.5px;color:var(--textdim);text-transform:uppercase;margin-bottom:6px">CPU Cores (default ns)</div>
-          <canvas id="spark-cpu" style="width:100%;flex:1;min-height:70px"></canvas>
+          <canvas id="spark-cpu" style="width:100%;height:88px;display:block"></canvas>
         </div>
       </div>
+      <div id="metric-poll-hint" style="font-size:9px;color:var(--textdim);text-align:center;line-height:1.4;padding:4px 6px 0">—</div>
       <div class="grafana-overlay" id="grafana-overlay" style="pointer-events:none;position:absolute;inset:0;border:2px solid transparent;transition:border-color 0.5s,box-shadow 0.5s;border-radius:0"></div>
     </div>
 
@@ -798,6 +961,13 @@
       <div class="dot dot-green" id="coordinator-dot"></div>
       <span id="coordinator-status">AtlasOps ready</span>
     </div>
+    <div class="statusbar-item" title="From GET /health — URL never shown">
+      <div class="dot" id="discord-dot" style="background:var(--textdim)"></div>
+      <span id="discord-hook-pill">Discord webhook …</span>
+    </div>
+    <div class="statusbar-item" title="Agent API base from /health">
+      <span id="inference-summary" style="color:var(--textdim)">Inference …</span>
+    </div>
     <div class="statusbar-item"><div class="dot" style="background:var(--accent)"></div>Qwen2.5-7B · AMD MI300X</div>
     <div style="flex:1"></div>
     <span id="statusbar-time" style="color:var(--textdim)"></span>
@@ -809,7 +979,7 @@
 <div id="tab-bench" class="tab-panel" style="padding:80px 40px 40px;overflow-y:auto">
   <div style="max-width:980px;margin:0 auto;position:relative;z-index:2">
     <h2 style="font-size:20px;margin-bottom:6px;color:var(--accent);letter-spacing:2px">BENCHMARK RESULTS</h2>
-    <p style="color:var(--textdim);font-size:11px;margin-bottom:28px">31 scenarios · Real GKE cluster · AMD MI300X · DAPO loss + Spaced-Rep Curriculum</p>
+    <p style="color:var(--textdim);font-size:11px;margin-bottom:28px">29 curriculum YAML scenarios · Real GKE cluster · AMD MI300X · DAPO loss + Spaced-Rep Curriculum</p>
 
     <!-- Hero metrics -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px">
@@ -904,6 +1074,13 @@
     <p style="font-size:14px;color:var(--textdim);max-width:600px;margin:0 auto;line-height:1.8">
       The first multi-agent SRE platform trained end-to-end on real cloud failures.<br>
       <span style="color:var(--text)">4 specialized AI agents. 20 real SRE tools. 1 AMD MI300X.</span>
+    </p>
+  </div>
+
+  <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.22);border-radius:12px;padding:18px 22px;margin-bottom:32px;max-width:760px;margin-left:auto;margin-right:auto">
+    <div style="font-size:10px;letter-spacing:2.5px;color:var(--accent);text-transform:uppercase;margin-bottom:8px">HF Spaces & trained weights</div>
+    <p style="font-size:12px;color:var(--textdim);line-height:1.75;margin:0">
+      This dashboard calls the coordinator configured for the deployment (URL, secrets, cluster access). Chaos and Prometheus metrics are live when that wiring reaches a real cluster; otherwise the UI can still run with a local <span style="color:var(--text)">UI preview (offline)</span> timeline. GRPO/SFT checkpoints are not magically active just because the Space is open—using them means loading the adapter or merged weights in your inference stack (for example vLLM on ROCm) as part of the Space image or startup.
     </p>
   </div>
 
@@ -1131,13 +1308,24 @@ const _sparkData = { rps: Array(40).fill(0), cpu: Array(40).fill(0) };
 function _drawSparkline(canvasId, data, color, fillColor) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
-  canvas.width = canvas.offsetWidth * window.devicePixelRatio || 200;
-  canvas.height = canvas.offsetHeight * window.devicePixelRatio || 70;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = Math.max(canvas.offsetWidth || 120, 1);
+  const cssH = Math.max(canvas.offsetHeight || 70, 1);
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = cssW, H = cssH;
   ctx.clearRect(0, 0, W, H);
-  const max = Math.max(...data, 0.001);
-  const pts = data.map((v, i) => [i / (data.length - 1) * W, H - (v / max) * H * 0.85 - H * 0.05]);
+  const vals = data.map(v => (+v || 0));
+  const rawMax = Math.max(...vals, 1e-9);
+  const rawMin = Math.min(...vals);
+  const span = Math.max(rawMax - rawMin, rawMax * 0.08, 1e-9);
+  const vmin = Math.max(0, rawMin - span * 0.12);
+  const vmax = rawMax + span * 0.12;
+  const norm = vmax > vmin ? (v => (v - vmin) / (vmax - vmin)) : (_ => 0.5);
+  const xStep = vals.length > 1 ? W / (vals.length - 1) : W;
+  const pts = vals.map((v, i) => [i * xStep, H - norm(v) * H * 0.85 - H * 0.05]);
   if (pts.length < 2) return;
   // Fill
   ctx.beginPath();
@@ -1240,11 +1428,19 @@ async function refreshPrometheusMetrics() {
       promStatus.textContent = live ? '● metrics live' : '○ metrics offline';
       promStatus.style.color = live ? 'var(--green)' : 'var(--textdim)';
     }
+    const hint = document.getElementById('metric-poll-hint');
+    if (hint) {
+      hint.textContent = live
+        ? 'Sparklines use min–max scaling so small moves stay visible. Samples about every 5s via /metrics.'
+        : 'No Prometheus samples — check PROMETHEUS_URL / proxy. UI still updates when offline falls back to flat lines.';
+    }
     // If all metrics null, replace "connecting…" canvases with explicit offline state
     if (!live) { _drawOfflineSparkline('spark-rps'); _drawOfflineSparkline('spark-cpu'); }
   } catch {
     const promStatus = document.getElementById('prom-status');
     if (promStatus) { promStatus.textContent = '○ metrics offline'; promStatus.style.color = 'var(--textdim)'; }
+    const hint = document.getElementById('metric-poll-hint');
+    if (hint) hint.textContent = 'Metrics request failed — retrying every 5s.';
     _drawOfflineSparkline('spark-rps'); _drawOfflineSparkline('spark-cpu');
   }
 }
@@ -1290,14 +1486,18 @@ async function refreshAlertCount() {
 }
 
 // Always start metrics polling via server-side proxy (no CORS issue)
+function _metricsPollTick() {
+  refreshPrometheusMetrics();
+  refreshAlertCount();
+}
 window.addEventListener('load', () => {
   // Show loading state immediately so canvases aren't black
   setTimeout(() => {
     _drawLoadingSparkline('spark-rps', '#00d4ff');
     _drawLoadingSparkline('spark-cpu', '#7b61ff');
   }, 100);
-  refreshPrometheusMetrics();
-  setInterval(refreshPrometheusMetrics, 15000);
+  _metricsPollTick();
+  setInterval(_metricsPollTick, 5000);
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -1526,31 +1726,52 @@ function resolveIncidentCard() {
 }
 
 // ── Chaos injection
-async function injectChaos(scenarioId, name) {
+function _scenarioButtonFor(scenarioId, el) {
+  if (el && el.closest) {
+    const b = el.closest('.scenario-btn');
+    if (b) return b;
+  }
+  return document.querySelector('.scenario-btn[data-scenario="' + scenarioId.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"]');
+}
+
+let _agentStallTimer = null;
+function _clearAgentStallTimer() {
+  if (_agentStallTimer) { clearTimeout(_agentStallTimer); _agentStallTimer = null; }
+}
+/** If SSE never yields real thoughts (common: VLLM_BASE=localhost inside Space), explain instead of silent skeleton. */
+function _armAgentStallWarning(scenarioLabel) {
+  _clearAgentStallTimer();
+  _agentStallTimer = setTimeout(() => {
+    const body = document.getElementById('timeline-body');
+    if (!body || body.querySelector('.atlas-stall-banner')) return;
+    if (body.querySelectorAll('.thought-entry').length > 0) return;
+    const w = document.createElement('div');
+    w.className = 'atlas-stall-banner';
+    w.style.cssText = 'margin:12px;padding:12px;border-radius:8px;border-left:3px solid var(--yellow);background:rgba(255,183,3,0.08);font-size:11px;line-height:1.55;color:var(--text)';
+    w.innerHTML = '<strong>No live agent timeline yet.</strong> The coordinator is usually waiting on the LLM HTTP API. On HF Spaces, <code>localhost:8000</code> points at the container itself, not your MI300X — set <code>ATLASOPS_USE_HF_INFERENCE=1</code> + <code>HF_TOKEN</code>, or expose vLLM on a reachable URL and set <code>VLLM_BASE</code>. <span style="color:var(--textdim)">Scenario: '+scenarioLabel+'</span>';
+    body.prepend(w);
+  }, 70000);
+}
+
+async function injectChaos(el, scenarioId, name) {
   if (activeScenarioBtn) activeScenarioBtn.classList.remove('firing');
-  document.querySelectorAll('.scenario-btn').forEach(b => {
-    if (b.textContent.includes(name.split(' ')[0])) { b.classList.add('firing'); activeScenarioBtn = b; }
-  });
+  activeScenarioBtn = _scenarioButtonFor(scenarioId, el);
+  if (activeScenarioBtn) activeScenarioBtn.classList.add('firing');
   document.getElementById('scenario-status').textContent = 'Injecting…';
   document.getElementById('agent-status').textContent = 'Dispatching…';
   clearTimeline();
+  _clearAgentStallTimer();
 
-  // Show immediate dispatching skeleton so judges see instant feedback
-  const tb = document.getElementById('timeline-body');
-  tb.innerHTML = `
-    <div style="padding:12px 10px;border-radius:8px;border-left:2px solid var(--red);background:rgba(255,69,96,0.04);animation:thoughtIn 0.3s ease">
-      <div style="font-size:10px;font-weight:800;letter-spacing:2px;color:var(--red);margin-bottom:4px">DISPATCHING</div>
-      <div style="font-size:12px;color:var(--text)">⚡ Firing alert: <span style="color:var(--accent)">${name}</span></div>
-    </div>
-    <div style="padding:12px 10px;border-radius:8px;background:rgba(15,21,33,0.8);opacity:0.5;animation:thoughtIn 0.4s 0.15s ease both">
-      <div style="font-size:10px;font-weight:800;letter-spacing:2px;color:var(--textdim);margin-bottom:4px">TRIAGE</div>
-      <div style="height:10px;background:var(--border);border-radius:4px;width:70%;animation:pulse 1.5s infinite"></div>
-    </div>
-    <div style="padding:12px 10px;border-radius:8px;background:rgba(15,21,33,0.8);opacity:0.3;animation:thoughtIn 0.4s 0.3s ease both">
-      <div style="font-size:10px;font-weight:800;letter-spacing:2px;color:var(--textdim);margin-bottom:4px">DIAGNOSIS</div>
-      <div style="height:10px;background:var(--border);border-radius:4px;width:50%;animation:pulse 1.5s 0.3s infinite"></div>
-    </div>
-  `;
+  // Brief dispatch chip only while /inject is in flight (not fake TRIAGE content)
+  const tb0 = document.getElementById('timeline-body');
+  tb0.innerHTML = `
+    <div class="thought-entry thought-triage phase-tool_call" style="animation:thoughtIn 0.25s ease">
+      <span class="thought-icon">⚡</span>
+      <div class="thought-content">
+        <div class="thought-role">dispatch →</div>
+        <div class="thought-text">Requesting chaos inject… <span style="color:var(--accent)">${name}</span></div>
+      </div>
+    </div>`;
 
   showIncidentCard(name);
   startMTTR();
@@ -1562,15 +1783,22 @@ async function injectChaos(scenarioId, name) {
     if (resp.ok) {
       document.getElementById('scenario-status').textContent = 'Chaos active';
       document.getElementById('agent-status').textContent = 'Running…';
+      const tb = document.getElementById('timeline-body');
+      tb.innerHTML = `<div class="empty-state" style="min-height:140px;padding:18px"><div class="icon">🤖</div><p>Incident pipeline started — streaming real agent steps here.</p><p style="font-size:10px;color:var(--textdim);margin-top:10px;line-height:1.6">First message appears when triage calls the LLM. If nothing shows for ~1–2 minutes, inference is not reachable from this host (see yellow notice).</p></div>`;
       startThoughtStream();
+      _armAgentStallWarning(name);
+    } else {
+      document.getElementById('scenario-status').textContent = 'UI preview (offline)';
+      runDemoMode(name);
     }
   } catch(e) {
-    document.getElementById('scenario-status').textContent = 'Demo mode';
+    document.getElementById('scenario-status').textContent = 'UI preview (offline)';
     runDemoMode(name);
   }
 }
 
 async function resetChaos() {
+  _clearAgentStallTimer();
   if (activeScenarioBtn) { activeScenarioBtn.classList.remove('firing'); activeScenarioBtn = null; }
   clearInterval(mttrTimer);
   document.getElementById('mttr-display').textContent = '—';
@@ -1622,7 +1850,7 @@ function addThought(thought) {
     stopMTTR(true);
     document.getElementById('agent-status').textContent = '✓ Resolved';
     cascadeServicesHealthy();
-    if (document.getElementById('scenario-status').textContent === 'Demo mode') {
+    if (document.getElementById('scenario-status').textContent === 'UI preview (offline)') {
       const inc = document.getElementById('active-incident');
       _injectDemoSlackPost(inc?.querySelector('.incident-title')?.textContent || 'Incident');
     }
@@ -1632,7 +1860,13 @@ function addThought(thought) {
 function startThoughtStream() {
   if (thoughtsSSE) thoughtsSSE.close();
   thoughtsSSE = new EventSource(`${COORDINATOR}/stream`);
-  thoughtsSSE.onmessage = (e) => { try { addThought(JSON.parse(e.data)); } catch(_) {} };
+  thoughtsSSE.onmessage = (e) => {
+    try {
+      const row = JSON.parse(e.data);
+      if (row.heartbeat || !row.role) return;
+      addThought(row);
+    } catch (_) {}
+  };
   thoughtsSSE.onerror = () => setTimeout(pollThoughts, 3000);
 }
 
@@ -1650,15 +1884,37 @@ async function pollThoughts() {
   } catch(e) { setTimeout(pollThoughts, 3000); }
 }
 
-// ── Demo mode
+// ── UI preview (offline): scripted timeline when inject/coordinator is unavailable
 const DEMO_FAULTS = {
   'Cloudflare 2019':     {frontend:'down', cartservice:'degraded', checkoutservice:'degraded'},
   'GitHub 2018':         {checkoutservice:'down', cartservice:'degraded', 'redis-cart':'degraded'},
   'Discord 2022':        {'redis-cart':'down', cartservice:'degraded', checkoutservice:'degraded'},
+  'AWS S3 2017':         {frontend:'degraded', checkoutservice:'degraded', cartservice:'degraded'},
+  'Azure DNS 2019':      {frontend:'degraded', checkoutservice:'degraded'},
+  'Fastly 2021':         {frontend:'down', checkoutservice:'degraded'},
+  'Facebook BGP 2021':   {frontend:'down', adservice:'degraded'},
+  'Datadog 2023':        {checkoutservice:'degraded', frontend:'degraded'},
+  'Slack 2022':          {checkoutservice:'degraded', 'redis-cart':'degraded'},
+  'Knight Capital 2012': {checkoutservice:'down', paymentservice:'degraded'},
   'Pod Kill':            {cartservice:'down'},
   'CPU Hog':             {paymentservice:'degraded'},
+  'Checkout mem stress': {checkoutservice:'degraded'},
+  'Frontend packet loss': {frontend:'degraded'},
+  'Redis ↔ cart partition': {'redis-cart':'degraded', cartservice:'degraded'},
+  'Payment DNS chaos':   {paymentservice:'degraded', checkoutservice:'degraded'},
+  'Email disk fault':    {emailservice:'degraded'},
   'Clock Skew':          {paymentservice:'degraded', checkoutservice:'degraded'},
   'Currency → Checkout': {currencyservice:'degraded', checkoutservice:'down', frontend:'degraded'},
+  'Redis partition cascade': {'redis-cart':'down', cartservice:'degraded', checkoutservice:'degraded'},
+  'Rec CPU → FE latency': {recommendationservice:'degraded', frontend:'degraded'},
+  'Email disk → checkout': {emailservice:'degraded', checkoutservice:'degraded'},
+  'Cloud SQL exhaustion': {cartservice:'down', checkoutservice:'degraded'},
+  'FE loss + checkout CPU': {frontend:'degraded', checkoutservice:'degraded'},
+  'Redis part + rec mem': {'redis-cart':'degraded', recommendationservice:'degraded'},
+  'DNS + currency latency': {currencyservice:'degraded', checkoutservice:'degraded'},
+  'Clock skew + cart loss': {paymentservice:'degraded', cartservice:'degraded'},
+  'Email IO + checkout delay': {emailservice:'degraded', checkoutservice:'degraded'},
+  'Adv-001 rec kill + catalog CPU': {recommendationservice:'degraded', productcatalogservice:'degraded'},
 };
 
 function runDemoMode(scenarioName) {
@@ -1683,7 +1939,7 @@ function runDemoMode(scenarioName) {
     {role:'comms',       phase:'conclusion',  thought:'Postmortem saved. Incident closed. MTTR: 4m 12s.'},
   ];
   clearTimeline();
-  document.getElementById('agent-status').textContent = 'Running (demo)';
+  document.getElementById('agent-status').textContent = 'Running (UI preview)';
   applyDemoFaults(scenarioName);
   let i = 0;
   const delays = [400,600,500,800,600,700,900,500,700,800,500,700,600,800,600,400,600,700];
@@ -1840,16 +2096,48 @@ function clearCommsFeed() {
   _slackCount = 0;
 }
 
-// ── Health check
+// ── Health check (also surfaces Discord secret + inference without exposing URLs)
 async function checkHealth() {
+  const dot = document.getElementById('coordinator-dot');
+  const st = document.getElementById('coordinator-status');
+  const discordEl = document.getElementById('discord-hook-pill');
+  const discordDot = document.getElementById('discord-dot');
+  const infEl = document.getElementById('inference-summary');
   try {
     const r = await fetch(`${COORDINATOR}/health`, {signal: AbortSignal.timeout(3000)});
     if (r.ok) {
-      document.getElementById('coordinator-dot').className = 'dot dot-green';
-      document.getElementById('coordinator-status').textContent = 'Coordinator online';
+      dot.className = 'dot dot-green';
+      st.textContent = 'Coordinator online';
+      const j = await r.json().catch(() => ({}));
+      if (discordEl && discordDot) {
+        const ok = j.discord_webhook_configured === true;
+        discordEl.textContent = ok ? 'Discord webhook ✓' : 'Discord webhook ✗ add DISCORD_WEBHOOK_URL';
+        discordEl.style.color = ok ? 'var(--green)' : 'var(--yellow)';
+        discordDot.className = 'dot ' + (ok ? 'dot-green' : 'dot-dim');
+      }
+      if (infEl) {
+        const base = (j.agent_base || '').trim();
+        const model = (j.model || '—').toString();
+        const shortModel = model.length > 28 ? model.slice(0, 26) + '…' : model;
+        const bad = !base || /localhost|127\.0\.0\.1/i.test(base);
+        infEl.textContent = bad
+          ? 'LLM base: not reachable from Space (fix VLLM_BASE / HF inference)'
+          : `LLM · ${shortModel}`;
+        infEl.style.color = bad ? 'var(--orange)' : 'var(--textdim)';
+      }
+    } else {
+      dot.className = 'dot dot-dim';
+      st.textContent = 'Coordinator HTTP ' + r.status;
+      if (discordEl) { discordEl.textContent = 'Discord: unknown'; discordEl.style.color = 'var(--textdim)'; }
+      if (discordDot) discordDot.className = 'dot dot-dim';
+      if (infEl) { infEl.textContent = 'Inference: unknown'; infEl.style.color = 'var(--textdim)'; }
     }
-  } catch(e) {
-    document.getElementById('coordinator-status').textContent = 'Coordinator offline (demo mode)';
+  } catch (e) {
+    dot.className = 'dot dot-red';
+    st.textContent = 'Coordinator offline (UI preview path)';
+    if (discordEl) { discordEl.textContent = 'Discord: unknown'; discordEl.style.color = 'var(--textdim)'; }
+    if (discordDot) discordDot.className = 'dot dot-dim';
+    if (infEl) { infEl.textContent = 'Inference: unknown'; infEl.style.color = 'var(--textdim)'; }
   }
 }
 

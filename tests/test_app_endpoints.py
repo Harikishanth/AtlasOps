@@ -22,6 +22,8 @@ def test_health_endpoint_ok():
     body = r.json()
     assert body["status"] == "ok"
     assert "model" in body
+    assert "discord_webhook_configured" in body
+    assert "slack_webhook_configured" in body
 
 
 def test_inject_missing_manifest_returns_404():

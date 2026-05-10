@@ -94,6 +94,11 @@ class TestBackendConfig:
 
 
 class TestApprovalFlow:
+    @pytest.fixture(autouse=True)
+    def _disable_live_judge(self, monkeypatch):
+        monkeypatch.setenv("ATLASOPS_LIVE_JUDGE", "0")
+        monkeypatch.setenv("ATLASOPS_USE_HF_INFERENCE", "0")
+
     def test_manual_mode_skips_remediation_agent(self, monkeypatch):
         import agents.coordinator as coord
 

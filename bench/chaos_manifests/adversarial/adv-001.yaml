@@ -1,0 +1,37 @@
+# adv-001: frozen adversarial-tier scenario (overlapping faults, noisy blast radius)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: adv-001-rec-kill
+  namespace: chaos-mesh
+  labels:
+    scenario: adv-001
+    tier: adversarial
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: recommendationservice
+  duration: "8m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: adv-001-catalog-cpu
+  namespace: chaos-mesh
+  labels:
+    scenario: adv-001
+    tier: adversarial
+spec:
+  mode: one
+  selector:
+    namespaces: [default]
+    labelSelectors:
+      app: productcatalogservice
+  stressors:
+    cpu:
+      workers: 2
+      load: 85
+  duration: "8m"

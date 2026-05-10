@@ -26,13 +26,21 @@ RUN mkdir -p data docs/postmortems && chmod -R 777 data docs
 # HF Spaces port
 EXPOSE 7860
 
-# Env vars to configure via HF Space Secrets:
-#   BACKEND=openai
-#   VLLM_BASE=https://router.huggingface.co/v1
-#   LLM_API_KEY=hf_xxx
-#   AGENT_MODEL=Qwen/Qwen2.5-7B-Instruct
-#   PROMETHEUS_URL, ALERTMANAGER_URL, JAEGER_URL  (GKE LoadBalancer IPs)
-#   GRAFANA_URL, ARGOCD_URL, BOUTIQUE_URL
+# ── HF Space Secrets (minimal — see docs/HF_SPACE_SETUP.md) ───────────────────
+#   HF_TOKEN=<read + inference capable>
+#   ATLASOPS_USE_HF_INFERENCE=1
+#   AGENT_MODEL=your-org/merged-atlasops-7b-grpo      # Hub id after merging LoRA
+#   JUDGE_MODEL=Qwen/Qwen2.5-72B-Instruct-AWQ         # or a smaller HF id Router allows
+# Optional: ATLASOPS_LIVE_JUDGE=1|0                     (defaults ON when inference pack enabled)
+#
+# Comms out (optional):
+#   DISCORD_WEBHOOK_URL   # Server Settings → Integrations → Webhooks → channel URL
+#   SLACK_WEBHOOK_URL
+
+# Existing cluster / Grafana wiring:
+#   PROMETHEUS_URL, ALERTMANAGER_URL, JAEGER_URL, GRAFANA_URL, ARGOCD_URL, BOUTIQUE_URL
 #   ATLASOPS_API_KEY, ALERTMANAGER_WEBHOOK_SECRET
+# If kubectl cannot reach GKE from this container (typical HF Space):
+#   ATLASOPS_SKIP_KUBECTL_INJECT=1
 
 CMD ["python", "app.py"]
