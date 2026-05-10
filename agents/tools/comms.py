@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,44 @@ POSTMORTEM_DIR = Path(os.getenv("POSTMORTEM_DIR", "docs/postmortems"))
 
 _SEV_COLOR_HEX = {"P0": "ff0000", "P1": "ff8800", "P2": "ffcc00"}
 _LOG_PATH = Path("data/slack_posts.jsonl")
+
+
+def _discord_webhook_post_with_retry(url: str, json_body: dict[str, Any], *, context: str) -> tuple[bool, str | None]:
+    """POST to a Discord Incoming Webhook; retry on 429 (burst limit) and transient 5xx.
+
+    Incoming webhooks are easy to saturate: one scenario can emit approval embed + closure embed
+    + every-run ping within seconds → Discord returns 429 with Retry-After.
+    """
+    last_err: str | None = None
+    max_attempts = 8
+    for attempt in range(max_attempts):
+        try:
+            r = requests.post(url, json=json_body, timeout=20)
+            if r.status_code == 429:
+                ra_raw = r.headers.get("Retry-After")
+                try:
+                    wait = float(ra_raw) if ra_raw is not None else 2.0
+                except (TypeError, ValueError):
+                    wait = 2.0
+                wait = min(max(wait, 0.5), 60.0)
+                log.warning(
+                    "Discord 429 (%s); sleeping %.1fs then retry (%d/%d)",
+                    context, wait, attempt + 1, max_attempts,
+                )
+                time.sleep(wait)
+                continue
+            if 500 <= r.status_code < 600 and attempt < max_attempts - 1:
+                time.sleep(1.0 + attempt * 0.5)
+                continue
+            r.raise_for_status()
+            return True, None
+        except requests.RequestException as e:
+            last_err = str(e)
+            if attempt < max_attempts - 1:
+                time.sleep(1.0 + attempt * 0.75)
+                continue
+    log.warning("Discord webhook failed after retries (%s): %s", context, last_err)
+    return False, last_err
 
 
 def discord_scenario_run_ping(
@@ -85,14 +124,11 @@ def discord_scenario_run_ping(
         }],
     }
 
-    try:
-        r = requests.post(url, json=body, timeout=15)
-        r.raise_for_status()
+    ok, err = _discord_webhook_post_with_retry(url, body, context=f"every-run ping {incident_id}")
+    if ok:
         log.info("Discord every-run ping sent for incident %s", incident_id)
         return {"ok": True, "sent": True, "mode": "discord_ping"}
-    except requests.RequestException as e:
-        log.warning("Discord every-run ping failed for %s: %s", incident_id, e)
-        return {"ok": False, "error": str(e)}
+    return {"ok": False, "error": err or "unknown"}
 
 
 def _build_slack_payload(channel: str, severity: str, title: str,
@@ -149,13 +185,10 @@ def _post_to_discord(slack_payload: dict) -> None:
             "footer": {"text": "AtlasOps · AMD MI300X"},
         }],
     }
-    r = requests.post(DISCORD_WEBHOOK, json=discord_payload, timeout=15)
-    try:
-        r.raise_for_status()
-    except requests.RequestException:
-        detail = getattr(r, "text", "")[:400]
-        log.warning("Discord webhook HTTP %s: %s", r.status_code, detail or r.reason)
-        raise
+    ok, err = _discord_webhook_post_with_retry(DISCORD_WEBHOOK, discord_payload, context="slack-style embed")
+    if not ok:
+        log.warning("Discord webhook (embed) failed: %s", err)
+        raise requests.RequestException(err or "Discord webhook failed")
 
 
 def slack_post_update(channel: str, severity: str, title: str, summary: str,

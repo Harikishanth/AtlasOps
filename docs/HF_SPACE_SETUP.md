@@ -123,7 +123,7 @@ AtlasOps does **not** use a Discord “bot” that shows online in the member li
 
 1. Discord → your server → **Server Settings** → **Integrations** → **Webhooks** → **New Webhook** → pick `#general` (or a channel) → copy **Webhook URL**.
 2. In HF Space **Secrets**, add **`DISCORD_WEBHOOK_URL`** = that URL (same as `agents/tools/comms.py` expects).
-3. **Every scenario/incident pipeline** triggers **one automatic Discord embed** when `DISCORD_WEBHOOK_URL` is set (coordinator fires this in `finally` after each `handle_incident`, including demo injects — independent of whether the LLM calls `slack_post_update`). Disable noise with **`ATLASOPS_DISCORD_EVERY_RUN_PING=0`**. Extra detail still appears when **comms** uses `slack_post_update`. If Discord is still empty, check Space logs (`Discord every-run ping failed`) and **`VLLM_BASE`** connectivity.
+3. **Every scenario/incident pipeline** triggers **one automatic Discord embed** when `DISCORD_WEBHOOK_URL` is set (coordinator fires this in `finally` after each `handle_incident`, including demo injects — independent of whether the LLM calls `slack_post_update`). Approval + closure + this ping can **burst** Discord’s webhook quota (**HTTP 429**); delivery now **retries** with `Retry-After`. Disable noise with **`ATLASOPS_DISCORD_EVERY_RUN_PING=0`**. Extra detail still appears when **comms** uses `slack_post_update`. If Discord is still empty after a run finishes, check Space logs and **`VLLM_BASE`** (stalled pipelines never reach `finally`).
 
 Optional: **`SLACK_WEBHOOK_URL`** for Slack in parallel; both can be set.
 
