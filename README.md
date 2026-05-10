@@ -27,6 +27,8 @@ tags:
 
 **Hackathon Space:** [lablab-ai-amd-developer-hackathon / atlas-ops](https://huggingface.co/spaces/lablab-ai-amd-developer-hackathon/atlas-ops) (`atlasops` without the hyphen hits **404**. If you recreated the Space under another slug, swap the link and set `ATLASOPS_PUBLIC_BASE_URL` to matching `*.hf.space` — see `docs/HF_SPACE_SETUP.md`.)
 
+**For judges — live Discord:** During runs, webhook posts appear in-channel (approval holds, remediation notices, scenario completion pings). Join to watch alongside the HF Space demo: **`https://discord.gg/REPLACE-WITH-YOUR-INVITE`** (replace with your **Server Settings → Invites → New Invite** URL; enable **never expire** so the link stays valid for judging).
+
 ---
 
 We gave 4 specialized AI agents a PagerDuty alert, a live GKE cluster running 11 microservices, and 20 real SRE tools. No simulated responses. No fake metrics. No Docker Compose pretending to be cloud.

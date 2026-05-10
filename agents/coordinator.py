@@ -648,8 +648,11 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
     circuit_breaker.start_incident()
 
     resolved = False
+    tri_snap: dict[str, Any] = {}
+    run_error: str | None = None
     try:
         triage = await call_agent("triage", {"incident_id": incident_id, "alert": alert})
+        tri_snap = triage.get("final") or {}
         diagnosis = await call_agent("diagnosis", {"incident_id": incident_id, "triage": triage["final"]})
         severity = _extract_severity({"triage": triage.get("final", {})})
         approval_mode = approval_mode_for_severity(severity)
@@ -841,8 +844,24 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
             result_summary="resolved" if resolved else "not_resolved",
         )
         return full_record
+    except Exception as e:
+        run_error = str(e)
+        raise
     finally:
         circuit_breaker.finish_incident(incident_id, resolved=resolved)
+        try:
+            from agents.tools.comms import discord_scenario_run_ping
+
+            discord_scenario_run_ping(
+                incident_id,
+                alert,
+                resolved=resolved if not run_error else False,
+                triage_title=str(tri_snap.get("title", "")),
+                triage_severity=str(tri_snap.get("severity", "")),
+                error=run_error,
+            )
+        except Exception as ping_ex:
+            log.warning("Discord every-run ping failed: %s", ping_ex)
 
 
 app = FastAPI(title="AtlasOps Coordinator")

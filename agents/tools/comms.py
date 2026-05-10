@@ -21,6 +21,80 @@ _SEV_COLOR_HEX = {"P0": "ff0000", "P1": "ff8800", "P2": "ffcc00"}
 _LOG_PATH = Path("data/slack_posts.jsonl")
 
 
+def discord_scenario_run_ping(
+    incident_id: str,
+    alert: dict[str, Any],
+    *,
+    resolved: bool,
+    triage_title: str,
+    triage_severity: str,
+    error: str | None = None,
+) -> dict[str, Any]:
+    """Always send **one** short Discord embed per incident run when `DISCORD_WEBHOOK_URL` is set.
+
+    Separate from agent `slack_post_update` calls — survives LLM skips and shows up every scenario.
+    Set `ATLASOPS_DISCORD_EVERY_RUN_PING=0` to disable.
+
+    Returns a small dict for logging/tests; failures are swallowed after logging except in strict flows.
+    """
+    url = os.getenv("DISCORD_WEBHOOK_URL", "").strip()
+    disabled = os.getenv("ATLASOPS_DISCORD_EVERY_RUN_PING", "1").strip().lower() in ("0", "false", "no", "off")
+    if not url or disabled:
+        return {"ok": False, "skipped": True, "reason": "no webhook or disabled"}
+
+    scenario_id = _trunc(str(alert.get("scenario_id") or alert.get("commonLabels", {}).get("scenario_id") or ""), 200)
+    alertname = _trunc(str(alert.get("commonLabels", {}).get("alertname") or "live-alert"), 200)
+    triage_title = _trunc(str(triage_title or ""), 200) or "(no title yet)"
+    sev_disp = _trunc(str(triage_severity or "—"), 8)
+
+    if error:
+        color = int("ED4245", 16)
+        footer = "AtlasOps · scenario run ended with exception"
+        status_line = "**Run ended with error** (see coordinator logs)."
+    elif resolved:
+        color = int("57F287", 16)
+        footer = "AtlasOps · scenario run finished"
+        status_line = "**Pipeline completed** (remediation outcome: resolved)."
+    else:
+        color = int("FEE75C", 16)
+        footer = "AtlasOps · scenario run finished"
+        status_line = "**Pipeline finished** — not flagged resolved (manual / partial / escalation)."
+
+    scenario_display = scenario_id if scenario_id.strip() else "—"
+    desc_lines = [
+        f"**{status_line}**",
+        f"**Incident** `{incident_id}`",
+        f"**Alert** {alertname}",
+        f"**Scenario / inject** `{scenario_display}`",
+        f"**Triage severity** `{sev_disp}` — **topic** {_trunc(triage_title, 300)}",
+    ]
+    if error:
+        desc_lines.append("")
+        desc_lines.append("```")
+        desc_lines.append(_trunc(error, 900))
+        desc_lines.append("```")
+
+    body = {
+        "username": _trunc(os.getenv("DISCORD_BOT_USERNAME", "atlasops-bot"), 80),
+        "embeds": [{
+            "title": _trunc(f"Scenario run complete · [{sev_disp}]", 256),
+            "description": _trunc("\n".join(desc_lines), 3900),
+            "color": color,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "footer": {"text": _trunc(footer, 2048)},
+        }],
+    }
+
+    try:
+        r = requests.post(url, json=body, timeout=15)
+        r.raise_for_status()
+        log.info("Discord every-run ping sent for incident %s", incident_id)
+        return {"ok": True, "sent": True, "mode": "discord_ping"}
+    except requests.RequestException as e:
+        log.warning("Discord every-run ping failed for %s: %s", incident_id, e)
+        return {"ok": False, "error": str(e)}
+
+
 def _build_slack_payload(channel: str, severity: str, title: str,
                          summary: str, action_items: list[str]) -> dict:
     return {
