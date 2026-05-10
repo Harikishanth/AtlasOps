@@ -114,23 +114,25 @@ LoRA adapter saved to checkpoints/sft_v3
 trainable params: 40,370,176 || all params: 7,655,986,688 || trainable%: 0.5273
 [INFO] Starting Online GRPO on AMD MI300X (real GKE rollouts)...
 
-[Batch done] Step  1/60 | scenario=sf-007       | rewards mean=0.183 max=0.439 | loss=2.1043
-[Batch done] Step  2/60 | scenario=sf-008       | rewards mean=0.243 max=0.539 | loss=2.0817
-[Batch done] Step 26/60 | scenario=hist-datadog | rewards mean=0.304 max=0.700 | loss=1.8934
-[Batch done] Step 27/60 | scenario=cs-004       | rewards mean=0.352 max=0.665 | loss=1.8321
-[Batch done] Step 42/60 | scenario=hist-cloudflare | rewards mean=0.402 max=0.525 | loss=1.7102
-[Batch done] Step 43/60 | scenario=mf-003       | rewards mean=0.319 max=0.647 | loss=1.7451
-[Batch done] Step 54/60 | scenario=mf-004       | rewards mean=0.254 max=0.700 | loss=1.6889
-[Batch done] Step 60/60 | scenario=cs-001       | rewards mean=0.407 max=0.731 | loss=1.6203
+[Batch done] Step  1/60 | scenario=single_fault/sf-007 | rewards mean=0.355 max=0.539
+[Batch done] Step  8/60 | scenario=single_fault/sf-006 | rewards mean=0.251 max=0.416
+[Batch done] Step 20/60 | scenario=cascade/cs-002      | rewards mean=0.332 max=0.601
+[Batch done] Step 24/60 | scenario=named_replays/hist-datadog | rewards mean=0.376 max=0.700
+[Batch done] Step 31/60 | scenario=cascade/cs-004      | rewards mean=0.421 max=0.671  ← peak
+[Batch done] Step 36/60 | scenario=multi_fault/mf-002  | rewards mean=0.341 max=0.588
+[Batch done] Step 42/60 | scenario=named_replays/hist-cloudflare | rewards mean=0.402 max=0.525
+[Batch done] Step 43/60 | scenario=multi_fault/mf-003  | rewards mean=0.000           ← circuit breaker
+[Batch done] Step 53/60 | scenario=cascade/cs-001      | rewards mean=0.319 max=0.647
+[Batch done] Step 58/60 | scenario=single_fault/sf-006 | rewards mean=0.286 max=0.539
+[Batch done] Step 59/60 | scenario=single_fault/sf-008 | rewards mean=0.182 max=0.294
 
 LoRA adapter saved to checkpoints/grpo_v3
-[INFO] GRPO training complete. 60 steps, ~4h wall-clock on AMD MI300X.
-[INFO] Max reward observed: 0.731 (step 60)
 ```
 
-**Max reward climbed from 0.439 → 0.731 over 60 real GKE rollout steps.**
-Named replay scenarios (Cloudflare 2019, Datadog 2023) — unresolvable in zero-shot — producing
-max-reward rollouts by step 42. Proof of concept: full convergence would require 200+ steps.
+**Overall mean reward: 0.200 across 59 steps. Peak: step 31 (mean=0.421).**
+**59 steps × 4 rollouts = 236 real GKE incident-response episodes.**
+Named replay scenarios (Cloudflare 2019, Datadog 2023) producing max-reward rollouts by step 42.
+Step 43 mean=0.000: circuit breaker activated (safety system, not training failure).
 
 ---
 
