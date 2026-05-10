@@ -49,8 +49,9 @@ class ApprovalRequest:
 
 class ApprovalGate:
     def __init__(self, timeout_seconds: int | None = None):
-        # Default 60s so demos don't stall — set APPROVAL_TIMEOUT_SECONDS=900 in production
-        self.timeout_seconds = timeout_seconds or int(os.getenv("APPROVAL_TIMEOUT_SECONDS", "60"))
+        # Default 300s so humans can intervene during demos.
+        # Override via APPROVAL_TIMEOUT_SECONDS as needed.
+        self.timeout_seconds = timeout_seconds or int(os.getenv("APPROVAL_TIMEOUT_SECONDS", "300"))
         self._pending_by_incident: dict[str, ApprovalRequest] = {}
         self._pending_by_token: dict[str, ApprovalRequest] = {}
 

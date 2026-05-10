@@ -123,6 +123,9 @@ async def root():
 @app.post("/inject", dependencies=[Security(_require_api_key)])
 async def inject_chaos(request: Request):
     """Apply a chaos scenario manifest to the real GKE cluster."""
+    from agents.stream import clear as clear_thought_buffer
+    clear_thought_buffer()
+
     body = InjectRequest.model_validate(await request.json())
     scenario_id = body.scenario_id
     correlation_id = f"inj-{int(time.time())}-{uuid.uuid4().hex[:8]}"
@@ -289,6 +292,20 @@ async def approval_callback(request: Request):
         token=payload.token,
         decision=payload.decision,
         approved_by=payload.approved_by,
+        reason=payload.reason,
+    )
+    status = 200 if result.get("ok") else 400
+    return JSONResponse(result, status_code=status)
+
+
+@app.post("/approve")
+async def approve_public(request: Request):
+    """Demo-friendly approval endpoint (token-scoped, no API key required)."""
+    payload = ApprovalCallbackRequest.model_validate(await request.json())
+    result = approval_gate.callback(
+        token=payload.token,
+        decision=payload.decision,
+        approved_by=payload.approved_by or "human-operator",
         reason=payload.reason,
     )
     status = 200 if result.get("ok") else 400

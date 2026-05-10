@@ -52,6 +52,11 @@ def emit(role: str, phase: str, thought: str, tool: str = "",
             pass
 
 
+def clear() -> None:
+    """Flush the thought buffer so new SSE subscribers don't replay stale events."""
+    _thought_buffer.clear()
+
+
 def get_history() -> list[dict]:
     return [e.to_dict() for e in _thought_buffer]
 

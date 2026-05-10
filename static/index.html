@@ -413,6 +413,28 @@
   .thought-remediation .thought-role { color: var(--yellow); }
   .thought-comms      .thought-role { color: var(--green); }
   .thought-text { font-size: 12px; line-height: 1.6; color: var(--text); }
+  .approval-actions {
+    display: flex; gap: 8px; margin-top: 10px;
+  }
+  .approval-btn {
+    padding: 6px 16px; border-radius: 6px; border: 1px solid transparent;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+    cursor: pointer; font-family: var(--font); transition: all 0.2s;
+  }
+  .approval-btn.approve {
+    background: rgba(0,227,150,0.15); color: var(--green); border-color: var(--green);
+  }
+  .approval-btn.approve:hover { background: rgba(0,227,150,0.3); }
+  .approval-btn.reject {
+    background: rgba(255,69,96,0.12); color: var(--red); border-color: var(--red);
+  }
+  .approval-btn.reject:hover { background: rgba(255,69,96,0.25); }
+  .approval-btn:disabled {
+    opacity: 0.4; cursor: default; pointer-events: none;
+  }
+  .approval-decided {
+    font-size: 11px; font-weight: 700; margin-top: 8px; letter-spacing: 0.5px;
+  }
   .thought-tool {
     display: inline-block; margin-top: 3px;
     padding: 1px 7px; border-radius: 3px;
@@ -1828,6 +1850,31 @@ function clearTimeline() {
     '<div class="empty-state"><div class="icon">🤖</div><p>Agents running…</p></div>';
 }
 
+function _extractApprovalToken(text) {
+  const m = text.match(/token:\s*(apr-[a-f0-9]+)/i);
+  return m ? m[1] : null;
+}
+
+async function _sendApprovalDecision(token, decision, btnContainer) {
+  const btns = btnContainer.querySelectorAll('.approval-btn');
+  btns.forEach(b => b.disabled = true);
+  try {
+    const r = await fetch(`${COORDINATOR}/approve`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token, decision, approved_by: 'human-operator'}),
+    });
+    const j = await r.json();
+    const label = decision === 'approved' ? 'Approved' : 'Rejected';
+    const color = decision === 'approved' ? 'var(--green)' : 'var(--red)';
+    btnContainer.innerHTML = `<div class="approval-decided" style="color:${color}">${label} by human operator</div>`;
+  } catch (e) {
+    btns.forEach(b => b.disabled = false);
+    btnContainer.insertAdjacentHTML('beforeend',
+      `<div style="color:var(--red);font-size:10px;margin-top:4px">Error: ${e.message}</div>`);
+  }
+}
+
 function addThought(thought) {
   const body = document.getElementById('timeline-body');
   const empty = body.querySelector('.empty-state');
@@ -1835,12 +1882,21 @@ function addThought(thought) {
 
   const div = document.createElement('div');
   div.className = `thought-entry thought-${thought.role} phase-${thought.phase}`;
+
+  const token = (thought.phase === 'waiting_approval') ? _extractApprovalToken(thought.thought) : null;
+  const approvalHTML = token ? `
+    <div class="approval-actions" data-token="${token}">
+      <button class="approval-btn approve" onclick="_sendApprovalDecision('${token}','approved',this.parentElement)">Approve</button>
+      <button class="approval-btn reject" onclick="_sendApprovalDecision('${token}','rejected',this.parentElement)">Reject</button>
+    </div>` : '';
+
   div.innerHTML = `
     <span class="thought-icon">${ROLE_ICON[thought.role] || '•'}</span>
     <div class="thought-content">
       <div class="thought-role">${thought.role} ${PHASE_ICON[thought.phase] || '•'}</div>
       <div class="thought-text">${thought.thought}</div>
       ${thought.tool ? `<span class="thought-tool">${thought.tool}</span>` : ''}
+      ${approvalHTML}
     </div>`;
   body.appendChild(div);
   body.scrollTop = body.scrollHeight;

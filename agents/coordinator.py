@@ -618,6 +618,9 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
         elif approval_mode == "approve":
             summary = _remediation_plan_summary(triage["final"], diagnosis["final"])
             req = approval_gate.request(incident_id=incident_id, severity=severity, summary=summary)
+            public_base = os.getenv("ATLASOPS_PUBLIC_BASE_URL", "").rstrip("/")
+            approve_url = f"{public_base}/approve" if public_base else "/approve"
+            reject_url = f"{public_base}/approve" if public_base else "/approve"
             audit_log.record(
                 incident_id=incident_id,
                 agent_role="remediation",
@@ -630,6 +633,30 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
                 "waiting_approval",
                 f"Awaiting human approval for remediation plan (token: {req.token}).",
             )
+            # Notify humans before remediation executes so they can truly intervene.
+            try:
+                TOOL_REGISTRY["slack_post_update"](
+                    channel="#incident-response",
+                    severity=severity,
+                    title=f"Approval required: {triage['final'].get('title', incident_id)}",
+                    summary=(
+                        f"Remediation is paused pending human decision for {incident_id}. "
+                        f"Token: {req.token}"
+                    ),
+                    action_items=[
+                        f"Approve: POST {approve_url} with {{\"token\":\"{req.token}\",\"decision\":\"approved\",\"approved_by\":\"<name>\"}}",
+                        f"Reject: POST {reject_url} with {{\"token\":\"{req.token}\",\"decision\":\"rejected\",\"approved_by\":\"<name>\",\"reason\":\"...\"}}",
+                        "If no response, auto-timeout policy may proceed per config.",
+                    ],
+                )
+                thought_emit(
+                    "comms",
+                    "tool_result",
+                    "Human approval request sent to incident channel.",
+                    tool="slack_post_update",
+                )
+            except Exception as e:
+                log.warning("failed to send approval notification: %s", e)
             approval_result = await approval_gate.wait_for_decision(incident_id)
             status = approval_result["status"]
             # "timeout" auto-approves so demos/unattended runs still complete.
