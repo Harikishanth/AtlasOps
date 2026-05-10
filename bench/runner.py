@@ -89,7 +89,7 @@ async def run_scenario(scenario_id: str) -> dict:
 
     try:
         incident = await handle_incident(alert)
-        judge_score = await judge_trajectory(incident)
+        judge_score = await judge_trajectory(incident, tier=tier)
     except Exception as e:
         log.exception("scenario %s failed: %s", scenario_id, e)
         reset_cluster()

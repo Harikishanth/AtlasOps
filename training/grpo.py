@@ -228,7 +228,7 @@ class OnlineRewardFunction:
 
         t0 = time.time()
         incident = await handle_incident(alert)
-        judge_score = await judge_trajectory(incident)
+        judge_score = await judge_trajectory(incident, tier=tier)
 
         remediation = incident.get("remediation", {}).get("final", {})
         total_turns = sum(
