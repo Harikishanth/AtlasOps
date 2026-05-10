@@ -22,8 +22,10 @@ from agents.approval import approval_gate, approval_mode_for_severity
 from agents.audit import audit_log
 from agents.circuit_breaker import CircuitBreakerTripped, circuit_breaker
 from agents.correlator import correlator
+from agents.prometheus_metrics import build_dashboard_metrics_payload
 from agents.stream import emit as thought_emit
 from agents.tools import TOOL_REGISTRY
+from agents.tools.alertmanager import alertmanager_list_alerts
 from config.runtime import StepRewardTracker
 
 
@@ -748,6 +750,22 @@ async def get_thoughts():
 @app.get("/health")
 async def health():
     return {"status": "ok", "vllm": VLLM_BASE, "model": MODEL_NAME}
+
+
+@app.get("/metrics")
+async def coordinator_prometheus_metrics():
+    """When this app is mounted at `/api` on the Space, this serves `GET /api/metrics`."""
+    return JSONResponse(await build_dashboard_metrics_payload())
+
+
+@app.get("/alertmanager/alerts")
+async def coordinator_alertmanager_feed():
+    """Serves `GET /api/alertmanager/alerts` on the Space (mounted at `/api`)."""
+    result = alertmanager_list_alerts(active_only=True)
+    payload: dict[str, Any] = {"count": result.get("count", 0), "alerts": result.get("alerts", [])}
+    if not result.get("success"):
+        payload["error"] = result.get("error", "alertmanager_unreachable")
+    return JSONResponse(payload)
 
 
 if __name__ == "__main__":
