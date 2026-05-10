@@ -3,7 +3,7 @@
 For each scenario:
   1. Apply Chaos Mesh manifest
   2. Wait for Alertmanager to fire
-  3. Run the 4-agent chain (with a teacher model — Claude/GPT-4 — for high-quality demos)
+  3. Run the 4-agent chain (optionally with a strong teacher LLM for high-quality demos)
   4. Score with the judge
   5. Record (state, action, output, reward) tuples
   6. Reset cluster
