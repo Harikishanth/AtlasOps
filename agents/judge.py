@@ -15,6 +15,8 @@ from typing import Any
 
 import httpx
 
+from agents._http_retry import post_with_retry
+
 log = logging.getLogger("atlasops.judge")
 
 JUDGE_URL = os.getenv("JUDGE_URL", "http://localhost:8001/v1").rstrip("/")
@@ -119,9 +121,10 @@ async def judge_trajectory(incident: dict[str, Any], tier: str = "unknown") -> d
 
         hdrs = _judge_headers()
         async with httpx.AsyncClient(timeout=120, headers=hdrs) as client:
-            r = await client.post(
+            r = await post_with_retry(
+                client,
                 f"{JUDGE_URL}/chat/completions",
-                json={
+                {
                     "model": JUDGE_MODEL,
                     "messages": [
                         {"role": "system", "content": rubric},
@@ -130,6 +133,7 @@ async def judge_trajectory(incident: dict[str, Any], tier: str = "unknown") -> d
                     "temperature": 0.0,
                     "max_tokens": 250,
                 },
+                context="judge_trajectory",
             )
             if r.status_code != 200:
                 log.warning(

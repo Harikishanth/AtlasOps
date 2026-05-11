@@ -208,18 +208,22 @@ async def _handle_after_delay(name: str, scenario_id: str, correlation_id: str):
 
 @app.post("/reset", dependencies=[Security(_require_api_key)])
 async def reset_chaos():
-    if _truthy_env("ATLASOPS_SKIP_KUBECTL_INJECT"):
+    circuit_breaker.reset()
+    correlator.reset()
+
+    kubectl_skipped = _truthy_env("ATLASOPS_SKIP_KUBECTL_INJECT")
+    if kubectl_skipped:
         log.warning("ATLASOPS_SKIP_KUBECTL_INJECT: skipping kubectl delete on reset")
-        return JSONResponse({"ok": True, "kubectl_skipped": True})
-    env = os.environ.copy()
-    env["USE_GKE_GCLOUD_AUTH_PLUGIN"] = "True"
-    subprocess.run(
-        ["kubectl", "delete",
-         "podchaos,networkchaos,stresschaos,dnschaos,iochaos,timechaos",
-         "--all", "-A", "--ignore-not-found=true"],
-        capture_output=True, env=env,
-    )
-    return JSONResponse({"ok": True})
+    else:
+        env = os.environ.copy()
+        env["USE_GKE_GCLOUD_AUTH_PLUGIN"] = "True"
+        subprocess.run(
+            ["kubectl", "delete",
+             "podchaos,networkchaos,stresschaos,dnschaos,iochaos,timechaos",
+             "--all", "-A", "--ignore-not-found=true"],
+            capture_output=True, env=env,
+        )
+    return JSONResponse({"ok": True, "kubectl_skipped": kubectl_skipped, "circuit_breaker_reset": True})
 
 
 @app.get("/stream")

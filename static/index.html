@@ -1761,18 +1761,52 @@ function _clearAgentStallTimer() {
   if (_agentStallTimer) { clearTimeout(_agentStallTimer); _agentStallTimer = null; }
 }
 /** If SSE never yields real thoughts (common: VLLM_BASE=localhost inside Space), explain instead of silent skeleton. */
+async function _diagnoseStall(scenarioLabel) {
+  const body = document.getElementById('timeline-body');
+  if (!body || body.querySelector('.atlas-stall-banner')) return;
+  if (body.querySelectorAll('.thought-entry').length > 0) return;
+
+  let msg = '';
+  let showResetBtn = false;
+  try {
+    const [cbRes, hRes] = await Promise.all([
+      fetch(`${COORDINATOR}/circuit-breaker/status`, {signal: AbortSignal.timeout(4000)}).then(r=>r.json()).catch(()=>null),
+      fetch(`${COORDINATOR}/health`, {signal: AbortSignal.timeout(4000)}).then(r=>r.json()).catch(()=>null),
+    ]);
+    if (cbRes && cbRes.tripped) {
+      msg = '<strong>Circuit breaker is OPEN</strong> — the system paused after repeated unresolved runs. This is safety protection, not a crash.';
+      showResetBtn = true;
+    } else if (hRes && hRes.agent_base && (hRes.agent_base.includes('localhost') || hRes.agent_base.includes('127.0.0.1'))) {
+      msg = '<strong>LLM endpoint unreachable.</strong> <code>VLLM_BASE</code> points at <code>localhost</code> inside this container. Set <code>ATLASOPS_USE_HF_INFERENCE=1</code> + <code>HF_TOKEN</code>, or use a reachable URL.';
+    } else {
+      msg = '<strong>No live agent timeline yet.</strong> The coordinator is waiting on the LLM HTTP API — inference may be cold-starting or rate-limited. If this persists, check Space logs.';
+    }
+  } catch(e) {
+    msg = '<strong>No live agent timeline yet.</strong> Could not reach coordinator status endpoints.';
+  }
+  msg += ' <span style="color:var(--textdim)">Scenario: '+scenarioLabel+'</span>';
+
+  const w = document.createElement('div');
+  w.className = 'atlas-stall-banner';
+  w.style.cssText = 'margin:12px;padding:12px;border-radius:8px;border-left:3px solid var(--yellow);background:rgba(255,183,3,0.08);font-size:11px;line-height:1.55;color:var(--text)';
+  w.innerHTML = msg;
+  if (showResetBtn) {
+    const btn = document.createElement('button');
+    btn.textContent = 'Reset circuit breaker';
+    btn.style.cssText = 'margin-top:8px;padding:4px 12px;border:1px solid var(--yellow);border-radius:4px;background:rgba(255,183,3,0.15);color:var(--text);cursor:pointer;font-size:11px';
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Resetting…';
+      try { await fetch(`${COORDINATOR}/reset`, {method:'POST'}); } catch(e) {}
+      w.remove();
+    };
+    w.appendChild(btn);
+  }
+  body.prepend(w);
+}
+
 function _armAgentStallWarning(scenarioLabel) {
   _clearAgentStallTimer();
-  _agentStallTimer = setTimeout(() => {
-    const body = document.getElementById('timeline-body');
-    if (!body || body.querySelector('.atlas-stall-banner')) return;
-    if (body.querySelectorAll('.thought-entry').length > 0) return;
-    const w = document.createElement('div');
-    w.className = 'atlas-stall-banner';
-    w.style.cssText = 'margin:12px;padding:12px;border-radius:8px;border-left:3px solid var(--yellow);background:rgba(255,183,3,0.08);font-size:11px;line-height:1.55;color:var(--text)';
-    w.innerHTML = '<strong>No live agent timeline yet.</strong> The coordinator is usually waiting on the LLM HTTP API. On HF Spaces, <code>localhost:8000</code> points at the container itself, not your MI300X — set <code>ATLASOPS_USE_HF_INFERENCE=1</code> + <code>HF_TOKEN</code>, or expose vLLM on a reachable URL and set <code>VLLM_BASE</code>. <span style="color:var(--textdim)">Scenario: '+scenarioLabel+'</span>';
-    body.prepend(w);
-  }, 70000);
+  _agentStallTimer = setTimeout(() => _diagnoseStall(scenarioLabel), 70000);
 }
 
 async function injectChaos(el, scenarioId, name) {

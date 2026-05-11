@@ -27,7 +27,7 @@ tags:
 
 **Hackathon Space:** [lablab-ai-amd-developer-hackathon / atlas-ops](https://huggingface.co/spaces/lablab-ai-amd-developer-hackathon/atlas-ops) (`atlasops` without the hyphen hits **404**. If you recreated the Space under another slug, swap the link and set `ATLASOPS_PUBLIC_BASE_URL` to matching `*.hf.space` — see `docs/HF_SPACE_SETUP.md`.)
 
-**For judges — live Discord:** During runs, webhook posts appear in-channel (approval holds, remediation notices, scenario completion pings). Join to watch alongside the HF Space demo: **`https://discord.gg/REPLACE-WITH-YOUR-INVITE`** (replace with your **Server Settings → Invites → New Invite** URL; enable **never expire** so the link stays valid for judging).
+> **For judges — live Discord:** Every scenario triggers Discord webhook posts (approval holds, remediation notices, run completion pings). **Join to watch runs alongside the HF Space demo:** **https://discord.gg/REPLACE-WITH-YOUR-INVITE**
 
 ---
 
@@ -47,36 +47,70 @@ This is **AtlasOps** — a self-improving multi-agent SRE platform where a 72B a
 
 ## Architecture
 
+```mermaid
+flowchart LR
+  subgraph GKE["GKE us-central1 · 3x e2-standard-4"]
+    OB["Online Boutique<br/>11 services"]
+    CM["Chaos Mesh<br/>Pod·Network·Stress·DNS·IO·Time"]
+    Prom["Prometheus +<br/>Alertmanager"]
+    Jaeger["Jaeger + OTel"]
+    Argo["Argo CD"]
+  end
+
+  Alert(["Alertmanager<br/>webhook"]) --> Coord
+  UI(["Live Ops UI<br/>POST /inject"]) --> Coord
+
+  subgraph Atlas["AtlasOps Coordinator · FastAPI"]
+    Coord["handle_incident"]
+    Corr["Correlator"]
+    CB["Circuit Breaker"]
+    Audit["HMAC Audit Log"]
+  end
+
+  Coord --> Triage
+  Triage --> Diag["Diagnosis"]
+  Diag --> Gate["Approval<br/>Gate"]
+  Gate -- "approve / timeout" --> Rem["Remediation"]
+  Gate -- "reject" --> Comms
+  Rem --> Comms
+  Comms --> PM["Postmortem.md"]
+  Comms -.-> Discord["Discord / Slack<br/>webhooks"]
+
+  Triage -. "kubectl · promql" .-> Prom
+  Diag -. "jaeger · promql · kubectl" .-> Jaeger
+  Rem -. "argocd · kubectl" .-> Argo
+
+  subgraph LLM["Inference Layer"]
+    Router["HF Inference Router<br/>(default)"]
+    Local["vLLM on MI300X<br/>192 GB HBM3"]
+  end
+
+  Triage -. "chat/completions" .-> Router
+  Diag -. "chat/completions" .-> Router
+  Rem -. "chat/completions" .-> Router
+  Comms -. "chat/completions" .-> Router
 ```
-┌──────────────────── GOOGLE CLOUD PLATFORM ─────────────────────┐
-│  GKE Standard Cluster (us-central1, 3× e2-standard-4)          │
-│  ├─ Online Boutique (11 services: Go, Python, Node, Java, C#)   │
-│  ├─ Chaos Mesh (PodChaos, NetworkChaos, StressChaos, ...)       │
-│  ├─ Prometheus + Grafana + Jaeger + OTel + Alertmanager         │
-│  └─ Argo CD (real rollback execution)                           │
-│  Cloud SQL (Postgres 15) · Cloud PubSub · Cloud Monitoring      │
-└─────────────────────────────────────────────────────────────────┘
-          │ kubectl + promql + jaeger + argocd + gcloud APIs
-          ▼
-┌──────────────── AMD MI300X (192 GB HBM3) ───────────────────────┐
-│  vLLM co-hosting — 5 models on ONE GPU:                         │
-│  Qwen2.5-7B × 4 (Triage / Diagnosis / Remediation / Comms)     │
-│  Qwen2.5-72B  (LLM Judge + adversarial scenario designer)       │
-│                                                                  │
-│  Alert → Triage → Diagnosis → [Approval Gate] → Remediation     │
-│       → Comms → Postmortem                                       │
-│                                                                  │
-│  Circuit Breaker · Incident Correlator · HMAC Audit Log         │
-│  Spaced-Rep Curriculum · DAPO GRPO · Dense Per-Step Rewards     │
-└──────────────────────────────────────────────────────────────────┘
-```
+
+Full end-to-end sequence diagram with design rationale: [`docs/END_TO_END_FLOW.md`](docs/END_TO_END_FLOW.md)
 
 ---
 
 ## Track Coverage
 
 ### Track 1 — AI Agents & Agentic Workflows
-AtlasOps is a purpose-built multi-agent framework for SRE automation. Rather than wrapping LangChain or CrewAI, we implement the full agentic stack directly — giving us tighter control over tool routing, approval gates, circuit breaking, and streaming than any general-purpose framework offers out of the box. The coordinator orchestrates 4 specialized roles (Triage, Diagnosis, Remediation, Comms) with tool-calling, human-in-the-loop approval, and alert correlation. Models: **Qwen2.5-7B × 4** (open-source, AMD MI300X co-hosted).
+AtlasOps is a purpose-built multi-agent framework for SRE automation. Rather than wrapping LangChain, LangGraph, or CrewAI, we implement the full agentic stack directly. The coordinator orchestrates 4 specialized roles (Triage, Diagnosis, Remediation, Comms) with tool-calling, human-in-the-loop approval, and alert correlation. Models: **Qwen2.5-7B × 4** (open-source, AMD MI300X co-hosted).
+
+**Why no general-purpose framework?** Every feature below would require fighting the framework's own abstractions:
+
+- **Per-role tool ACLs** enforced at runtime (`ROLE_ALLOWED_TOOLS`) — triage cannot call `argocd_rollback`.
+- **Human-in-the-loop approval gate** with token exchange, Discord/Slack out-of-band callback, and `POST /approve`.
+- **Circuit breaker** with *semantic* failure classification — rejecting remediation is a human decision, not a system failure, and does not trip the breaker.
+- **Incident correlator** deduplicating Alertmanager bursts while always dispatching UI injects.
+- **Dense per-step reward shaping** for GRPO training — each tool call scores against a contract (latency, correctness, safety).
+- **HMAC-chained audit log** for every agent action.
+- **Single SSE stream** driving the real-time operator UI timeline.
+
+These require control over the HTTP call loop, message history, tool dispatch, and approval suspension points — all of which are opaque or absent in LangGraph/CrewAI out of the box.
 
 ### Track 2 — Fine-Tuning on AMD GPUs
 Full fine-tuning pipeline on AMD hardware:
@@ -92,6 +126,24 @@ Full fine-tuning pipeline on AMD hardware:
 | AMD kernel optimisation | **Hugging Face Optimum-AMD** — BetterTransformer applied to local inference path (`inference.py`) |
 | Serving | **vLLM 0.17.1** (ROCm build — PagedAttention, flash attention for MI300X) |
 | Domain | **SRE Operations** — incident triage, root-cause diagnosis, remediation, postmortem authoring |
+
+### Training Evidence
+
+**SFT** — 2,028 real trajectories, 254 steps on MI300X in 14 min. Loss dropped 97.8%, token accuracy reached 99.1%.
+
+![SFT Loss and Token Accuracy](assets/training/sft_loss.png)
+
+**Online GRPO** — 60 steps, 4 rollouts each (236 real GKE episodes), 9h 34m on MI300X. Peak reward at step 31 (cascade scenario).
+
+![GRPO Mean Reward per Step](assets/training/grpo_reward.png)
+
+**Benchmark** — 28 chaos scenarios. Resolution rate: 54% (zero-shot) → 68% (SFT) → **82% (GRPO)**. Judge reward: 0.481 → 0.601 → **0.729**.
+
+![Benchmark Resolution Rate](assets/training/benchmark_resolution.png)
+
+![Benchmark Per Tier](assets/training/benchmark_per_tier.png)
+
+Full training narrative: [`docs/TRAINING_STORY.md`](docs/TRAINING_STORY.md) | Raw MI300X evidence: [`docs/MI300X_EVIDENCE.md`](docs/MI300X_EVIDENCE.md) | Benchmark tables: [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md)
 
 ---
 

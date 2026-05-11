@@ -18,6 +18,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from agents._http_retry import post_with_retry
 from agents.approval import approval_gate, approval_mode_for_severity
 from agents.audit import audit_log
 from agents.circuit_breaker import CircuitBreakerTripped, circuit_breaker
@@ -154,9 +155,11 @@ async def _force_json_conclusion(role: str, messages: list[dict], client: httpx.
     headers = {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
     try:
         async with httpx.AsyncClient(timeout=60, headers=headers) as c:
-            r = await c.post(
+            r = await post_with_retry(
+                c,
                 f"{VLLM_BASE}/chat/completions",
-                json={"model": MODEL_NAME, "messages": forced_msgs, "temperature": 0.0},
+                {"model": MODEL_NAME, "messages": forced_msgs, "temperature": 0.0},
+                context=f"forced_conclusion/{role}",
             )
             r.raise_for_status()
             content = r.json()["choices"][0]["message"].get("content", "")
@@ -182,15 +185,17 @@ async def call_agent(role: str, user_input: dict[str, Any], max_turns: int = 10)
     headers = {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
     async with httpx.AsyncClient(timeout=120, headers=headers) as client:
         for turn in range(max_turns):
-            r = await client.post(
+            r = await post_with_retry(
+                client,
                 f"{VLLM_BASE}/chat/completions",
-                json={
+                {
                     "model": MODEL_NAME,
                     "messages": messages,
                     "temperature": 0.2,
                     "tools": _tool_schemas_for_role(role),
                     "tool_choice": "auto",
                 },
+                context=f"{role}/turn-{turn}",
             )
             r.raise_for_status()
             choice = r.json()["choices"][0]
@@ -650,6 +655,7 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
     resolved = False
     tri_snap: dict[str, Any] = {}
     run_error: str | None = None
+    finish_reason = ""
     try:
         triage = await call_agent("triage", {"incident_id": incident_id, "alert": alert})
         tri_snap = triage.get("final") or {}
@@ -829,14 +835,25 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
                     tool="judge_trajectory",
                 )
 
-        # Derive resolved from actual remediation outcome, not just non-rejection.
-        # "skipped_execution" (P0 manual), "approval_rejected", "approval_timeout"
-        # are all non-resolved states. Only explicit "resolved" outcome counts.
         remediation_final = remediation.get("final", {})
         resolved = (
             remediation_final.get("outcome") == "resolved"
             or remediation_final.get("status") == "resolved"
         )
+        # Classify the outcome so the circuit breaker can distinguish
+        # designed human decisions from real system failures.
+        rem_status = str(remediation_final.get("status", ""))
+        rem_mode = str(remediation_final.get("mode", ""))
+        if rem_status == "approval_rejected":
+            finish_reason = "approval_rejected"
+        elif rem_status == "approval_timeout":
+            finish_reason = "approval_timeout"
+        elif rem_mode == "manual":
+            finish_reason = "manual_runbook"
+        elif not resolved:
+            finish_reason = "unresolved"
+        else:
+            finish_reason = ""
         audit_log.record(
             incident_id=incident_id,
             agent_role="coordinator",
@@ -846,9 +863,10 @@ async def handle_incident(alert: dict[str, Any], incident_id: str | None = None)
         return full_record
     except Exception as e:
         run_error = str(e)
+        finish_reason = "system_error"
         raise
     finally:
-        circuit_breaker.finish_incident(incident_id, resolved=resolved)
+        circuit_breaker.finish_incident(incident_id, resolved=resolved, reason=finish_reason if run_error else finish_reason)
         try:
             from agents.tools.comms import discord_scenario_run_ping
 

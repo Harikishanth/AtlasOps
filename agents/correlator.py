@@ -104,6 +104,10 @@ class IncidentCorrelator:
         self._expire_old(now)
         return [inc.to_dict() for inc in self._incidents.values()]
 
+    def reset(self) -> None:
+        """Clear all tracked incidents (used by POST /reset)."""
+        self._incidents.clear()
+
     def _should_correlate(
         self,
         now: float,

@@ -57,7 +57,9 @@ def test_reset_returns_ok(mock_run):
     client = _client()
     r = client.post("/reset")
     assert r.status_code == 200
-    assert r.json() == {"ok": True}
+    data = r.json()
+    assert data["ok"] is True
+    assert data["circuit_breaker_reset"] is True
 
 
 def test_slack_feed_returns_recent_posts(tmp_path, monkeypatch):

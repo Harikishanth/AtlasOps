@@ -5,6 +5,17 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
+# Outcome reasons that represent *designed* human decisions, not system failures.
+# These must NOT trip the breaker — judges rejecting remediation or P0 manual mode
+# are expected operational paths, not evidence of a broken pipeline.
+DESIGNED_OUTCOMES = frozenset({
+    "approval_rejected",
+    "approval_timeout",
+    "manual_runbook",
+    "partial_resolution",
+    "escalation",
+})
+
 
 class CircuitBreakerTripped(RuntimeError):
     pass
@@ -31,11 +42,13 @@ class CircuitBreaker:
             raise CircuitBreakerTripped("Concurrent incident limit reached")
         self._active_incidents += 1
 
-    def finish_incident(self, incident_id: str, resolved: bool) -> None:
+    def finish_incident(self, incident_id: str, resolved: bool, reason: str = "") -> None:
         self._active_incidents = max(0, self._active_incidents - 1)
         self._tool_call_count.pop(incident_id, None)
         if resolved:
             self._consecutive_failures = 0
+            return
+        if reason in DESIGNED_OUTCOMES:
             return
         self._consecutive_failures += 1
         if self._consecutive_failures >= self.consecutive_failure_threshold:
@@ -76,6 +89,7 @@ class CircuitBreaker:
         self._mutating_actions_this_hour = 0
         self._hour_window_start = time.time()
         self._tool_call_count.clear()
+        self._active_incidents = 0
         return self.status()
 
     def _roll_hour_window_if_needed(self) -> None:
